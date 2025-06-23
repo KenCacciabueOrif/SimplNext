@@ -8,16 +8,13 @@ export default async function Posts() {
   });
 
   return (
-    <div className="">
-      <h1 className="">
-        Posts
-      </h1>
-      <ul className="">
+    <div className="border flex flex-col flex-auto mx-7">
+      <ul className="border flex flex-col flex-auto">
         {posts.map((post) => (
-          <li key={post.id}>
-            <span className="">{post.title}</span>
-            <span className="">
-              by {post.author.name}
+          <li key={post.id} className="border flex flex-col max-h-70 min-h-30">
+            <span className="text-xl font-bold text-center py-5">{post.title}</span>
+            <span className="text-base text-center flex-auto">
+              by {post.content}
             </span>
           </li>
         ))}
