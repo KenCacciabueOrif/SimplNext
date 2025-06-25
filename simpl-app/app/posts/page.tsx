@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import Link from 'next/link'
 
 export default async function Posts() {
   const posts = await prisma.post.findMany({
@@ -16,6 +17,7 @@ export default async function Posts() {
             <span className="text-base text-center flex-auto">
               by {post.content}
             </span>
+            <Link href={`/posts/${post.id.toString()}`} className="border text-base text-center flex-auto">{post.id.toString()}</Link>
           </li>
         ))}
       </ul>

@@ -6,14 +6,24 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: 'S.',
     icons: [
       {
-        src: '/public/logo.svg',
+        src: '/android-chrome-192x192.png',
         sizes: '192x192',
-        type: 'image/svg',
+        type: 'image/png',
       },
       {
-        src: '/public/logo.svg',
+        src: '/android-chrome-512x512.png',
         sizes: '512x512',
-        type: 'image/svg',
+        type: 'image/png',
+      },
+      {
+        src: '/favicon-16x16.png',
+        sizes: '16x16',
+        type: 'image/png',
+      },
+      {
+        src: '/favicon-32x32.png',
+        sizes: '32x32',
+        type: 'image/png',
       },
     ],
     start_url: '/',
@@ -27,21 +37,28 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'A simple social network',
     screenshots: [
       {
-        src: 'public/SimplHome.png',
+        src: '/SimplHome.png',
         sizes: '384x854',
         type: 'image/png',
         form_factor: 'narrow',
         label: "Home screen showing main navigation and featured content"
       },
       {
-        src: 'public/SimplMode.png',
+        src: '/SimplHomeWide.png',
+        sizes: '915x412',
+        type: 'image/png',
+        form_factor: 'wide',
+        label: "Home screen showing main navigation and featured content"
+      },
+      {
+        src: '/SimplMode.png',
         sizes: '384x854',
         type: 'image/png',
         form_factor: 'narrow',
         label: "Moderation screen showing main navigation and content to moderate"
       },
       {
-        src: 'public/SimplComm.png',
+        src: '/SimplComm.png',
         sizes: '384x854',
         type: 'image/png',
         form_factor: 'narrow',
