@@ -1,5 +1,5 @@
 > Last updated: 2026-04-21
-> Changes: Documented the active SimplNext rebuild scope, linked the app README, and summarized the first implemented PostgreSQL foundation.
+> Changes: Kept the rebuild status in sync and added a follow-up todo for slow feedback on reaction and moderation buttons.
 
 # SimplNext
 
@@ -20,6 +20,7 @@ This folder contains the active rebuild of Simpl with Next.js.
 - The first implementation base is in place.
 - The app now has a normalized Prisma schema for anonymous actors, posts, reactions, and moderation votes.
 - Feed, thread, post creation, and moderation pages are wired in the Next.js app.
+- The shared layout and page composition are now being pushed closer to the original black-and-white Simpl interface.
 
 ## Maintenance Steps
 
@@ -30,4 +31,5 @@ This folder contains the active rebuild of Simpl with Next.js.
 ## Todo
 
 - Add milestone notes as the rebuild reaches parity with the legacy prototype.
+- Improve perceived refresh speed for Like, DisLike, Good, and Bad actions after submission.
 - Document deployment and environment handling once the runtime setup is stabilized.

@@ -1,12 +1,12 @@
 /**
  * Last updated: 2026-04-21
- * Changes: Replaced the starter shell with the Simpl navigation frame used by the feed, thread, and moderation views.
+ * Changes: Reworked the shared shell to match the legacy Simpl UI structure with a centered title bar and simple tab navigation.
  * Purpose: Provide shared layout metadata and navigation for the Simpl application.
  */
 
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
+import AppTabs from "@/app/components/AppTabs";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -21,7 +21,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Simpl.",
-  description: "A local social network rebuilt with Next.js and Prisma.",
+  description: "A local social network rebuilt with a UI close to the original Simpl prototype.",
 };
 
 export default function RootLayout({
@@ -35,20 +35,11 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <div className="app-shell">
-          <header className="app-header">
-            <div>
-              <p className="eyebrow">Réseau social local</p>
-              <Link href="/" className="brand-link">
-                Simpl.
-              </Link>
-            </div>
-
-            <nav className="app-nav" aria-label="Primary">
-              <Link href="/">Fil</Link>
-              <Link href="/posts/new">Publier</Link>
-              <Link href="/moderation">Modération</Link>
-            </nav>
+          <header className="title-bar">
+            <h1>Simpl.</h1>
           </header>
+
+          <AppTabs />
 
           <main className="app-main">{children}</main>
         </div>

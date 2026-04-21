@@ -1,6 +1,6 @@
 /**
  * Last updated: 2026-04-21
- * Changes: Added the Simpl domain helpers for actor identity, feed queries, thread queries, and moderation queue reads.
+ * Changes: Added viewer geolocation parsing and real distance-based sorting for feed and moderation queries.
  * Purpose: Centralize server-side data access and shared domain rules for the Simpl application.
  */
 
@@ -10,7 +10,12 @@ import prisma from "@/lib/prisma";
 
 const ACTOR_COOKIE = "simpl-actor-key";
 
-export type FeedSort = "new" | "top";
+export type FeedSort = "new" | "top" | "distance";
+
+export type ViewerLocation = {
+  latitude: number;
+  longitude: number;
+};
 
 export type PostListItem = {
   id: string;
@@ -29,9 +34,58 @@ export type PostListItem = {
   status: PostStatus;
   createdAt: Date;
   replyCount: number;
+  distanceKm: number | null;
 };
 
 type PostQueryRecord = Parameters<typeof toPostListItem>[0];
+
+function toRadians(value: number) {
+  return (value * Math.PI) / 180;
+}
+
+function calculateDistanceKm(
+  viewerLocation: ViewerLocation,
+  post: Pick<PostListItem, "latitude" | "longitude">,
+) {
+  if (post.latitude === null || post.longitude === null) {
+    return null;
+  }
+
+  const earthRadiusKm = 6371;
+  const latitudeDelta = toRadians(post.latitude - viewerLocation.latitude);
+  const longitudeDelta = toRadians(post.longitude - viewerLocation.longitude);
+  const viewerLatitude = toRadians(viewerLocation.latitude);
+  const postLatitude = toRadians(post.latitude);
+
+  const haversine =
+    Math.sin(latitudeDelta / 2) * Math.sin(latitudeDelta / 2) +
+    Math.cos(viewerLatitude) * Math.cos(postLatitude) *
+      Math.sin(longitudeDelta / 2) * Math.sin(longitudeDelta / 2);
+
+  return 2 * earthRadiusKm * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+}
+
+function sortPostsByDistance(posts: PostListItem[]) {
+  return [...posts].sort((left, right) => {
+    if (left.distanceKm === null && right.distanceKm === null) {
+      return right.createdAt.getTime() - left.createdAt.getTime();
+    }
+
+    if (left.distanceKm === null) {
+      return 1;
+    }
+
+    if (right.distanceKm === null) {
+      return -1;
+    }
+
+    if (left.distanceKm !== right.distanceKm) {
+      return left.distanceKm - right.distanceKm;
+    }
+
+    return right.createdAt.getTime() - left.createdAt.getTime();
+  });
+}
 
 function toPostListItem(post: {
   id: string;
@@ -50,11 +104,12 @@ function toPostListItem(post: {
   createdAt: Date;
   author: { displayName: string };
   _count: { replies: number };
-}): PostListItem {
+}, viewerLocation?: ViewerLocation | null): PostListItem {
   return {
     authorDisplayName: post.author.displayName,
     body: post.body,
     createdAt: post.createdAt,
+    distanceKm: viewerLocation ? calculateDistanceKm(viewerLocation, post) : null,
     dislikeCount: post.dislikeCount,
     id: post.id,
     keepVoteCount: post.keepVoteCount,
@@ -71,8 +126,35 @@ function toPostListItem(post: {
   };
 }
 
-export function resolveFeedSort(input?: string): FeedSort {
-  return input === "top" ? "top" : "new";
+export function parseViewerLocation(latitude?: string, longitude?: string): ViewerLocation | null {
+  if (!latitude || !longitude) {
+    return null;
+  }
+
+  const parsedLatitude = Number(latitude);
+  const parsedLongitude = Number(longitude);
+
+  if (!Number.isFinite(parsedLatitude) || !Number.isFinite(parsedLongitude)) {
+    return null;
+  }
+
+  if (parsedLatitude < -90 || parsedLatitude > 90 || parsedLongitude < -180 || parsedLongitude > 180) {
+    return null;
+  }
+
+  return { latitude: parsedLatitude, longitude: parsedLongitude };
+}
+
+export function resolveFeedSort(input?: string, viewerLocation?: ViewerLocation | null): FeedSort {
+  if (input === "distance" && viewerLocation) {
+    return "distance";
+  }
+
+  if (input === "top") {
+    return "top";
+  }
+
+  return "new";
 }
 
 export async function getViewerActor() {
@@ -113,7 +195,7 @@ export async function ensureAnonymousActor() {
   });
 }
 
-export async function getFeedPosts(sort: FeedSort) {
+export async function getFeedPosts(sort: FeedSort, viewerLocation?: ViewerLocation | null) {
   const posts = (await prisma.post.findMany({
     where: {
       parentId: null,
@@ -131,10 +213,11 @@ export async function getFeedPosts(sort: FeedSort) {
     },
   })) as unknown as PostQueryRecord[];
 
-  return posts.map(toPostListItem);
+  const normalizedPosts = posts.map((post) => toPostListItem(post, viewerLocation));
+  return sort === "distance" ? sortPostsByDistance(normalizedPosts) : normalizedPosts;
 }
 
-export async function getThreadPageData(postId: string) {
+export async function getThreadPageData(postId: string, viewerLocation?: ViewerLocation | null) {
   const post = (await prisma.post.findUnique({
     where: { id: postId },
     include: {
@@ -165,10 +248,16 @@ export async function getThreadPageData(postId: string) {
     },
   })) as unknown as PostQueryRecord[];
 
-  return { post: toPostListItem(post), replies: replies.map(toPostListItem) };
+  return {
+    post: toPostListItem(post, viewerLocation),
+    replies: replies.map((reply) => toPostListItem(reply, viewerLocation)),
+  };
 }
 
-export async function getModerationQueue() {
+export async function getModerationQueue(
+  sort: FeedSort = "new",
+  viewerLocation?: ViewerLocation | null,
+) {
   const posts = (await prisma.post.findMany({
     where: {
       status: {
@@ -184,5 +273,6 @@ export async function getModerationQueue() {
     },
   })) as unknown as PostQueryRecord[];
 
-  return posts.map(toPostListItem);
+  const normalizedPosts = posts.map((post) => toPostListItem(post, viewerLocation));
+  return sort === "distance" ? sortPostsByDistance(normalizedPosts) : normalizedPosts;
 }

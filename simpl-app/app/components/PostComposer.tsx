@@ -1,6 +1,6 @@
 /**
  * Last updated: 2026-04-21
- * Changes: Added a reusable composer for root posts and replies.
+ * Changes: Reworked the composer markup so the form reads like the original Simpl creation panel.
  * Purpose: Render the create form shared by the new post page and thread reply flow.
  */
 
@@ -21,11 +21,9 @@ export default function PostComposer({
 }: PostComposerProps) {
   return (
     <section className="composer-card">
-      <div className="section-heading">
-        <div>
-          <h2 className="page-heading">{heading}</h2>
-          <p>{description}</p>
-        </div>
+      <div className="panel-title">
+        <h2>{heading}</h2>
+        <p>{description}</p>
       </div>
 
       <form action={createPostAction}>

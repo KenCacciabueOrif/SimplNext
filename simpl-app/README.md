@@ -1,5 +1,5 @@
 > Last updated: 2026-04-21
-> Changes: Documented the first SimplNext implementation milestone, the PostgreSQL Prisma domain model, and the main code entry points.
+> Changes: Documented the responsive UI pass, the larger dataset, the geolocation-backed distance sorting, and a new todo for slow action-button refresh feedback.
 
 # Simpl.
 
@@ -18,6 +18,8 @@ Local social network with community moderation.
 - Post creation page on [app/posts/new/page.tsx](app/posts/new/page.tsx).
 - Moderation queue on [app/moderation/page.tsx](app/moderation/page.tsx).
 - Server actions on [app/actions.ts](app/actions.ts).
+- Legacy-style top tabs on [app/components/AppTabs.tsx](app/components/AppTabs.tsx).
+- Legacy-style sort row on [app/components/SortBar.tsx](app/components/SortBar.tsx).
 - Shared post queries and anonymous actor helpers on [lib/simpl.ts](lib/simpl.ts).
 - Prisma client setup on [lib/prisma.ts](lib/prisma.ts).
 - Prisma domain schema on [prisma/schema.prisma](prisma/schema.prisma).
@@ -29,6 +31,9 @@ Local social network with community moderation.
 - Posts and replies share the same `Post` model through a self-relation.
 - Reactions and moderation votes are normalized into separate tables instead of storing user arrays on the post record.
 - The new Simpl tables are isolated from the earlier demo schema through dedicated table names.
+- The visual shell now follows the original Simpl prototype much more closely: centered title bar, Home/Moderation tabs, sort row, stacked post cards, and black/white borders.
+- The layout now adapts more cleanly to narrow, medium, and wide windows while keeping the same legacy visual language.
+- The `Distance` sort now uses browser geolocation and real post coordinates instead of a placeholder value.
 
 ## Important Code Comments
 
@@ -45,6 +50,12 @@ Local social network with community moderation.
 4. Seed development data with `npx prisma db seed`.
 5. Start the app with `npm run dev`.
 
+## Seed Coverage
+
+- The seed now creates more than twenty posts in total.
+- It includes root posts, reply chains, liked/disliked items, and multiple moderation states.
+- This larger dataset is intended to make responsive feed and thread testing much more realistic.
+
 ## Maintenance Steps
 
 1. Update this README whenever routes, schema responsibilities, or major data flows change.
@@ -58,7 +69,8 @@ Local social network with community moderation.
 
 ## Todo
 
-- Add distance-aware sorting backed by user geolocation.
+- Refine the distance fallback UX when geolocation is denied or unavailable.
+- Improve the refresh/feedback speed of Like, DisLike, Good, and Bad actions after a click.
 - Add richer thread navigation for deeper reply trees.
 - Add a clearer moderation policy UI and status explanations.
 

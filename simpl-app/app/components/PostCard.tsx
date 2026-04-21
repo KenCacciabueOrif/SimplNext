@@ -1,6 +1,6 @@
 /**
  * Last updated: 2026-04-21
- * Changes: Added a reusable post card for feed, thread, and moderation contexts.
+ * Changes: Replaced the mock distance display with the actual viewer-relative distance when available and preserved query context in navigation links.
  * Purpose: Present Simpl posts with their metadata, counters, and available actions.
  */
 
@@ -18,6 +18,7 @@ type PostCardProps = {
   post: PostListItem;
   threadId: string;
   mode: PostCardMode;
+  navigationQuery?: string;
 };
 
 function statusLabel(status: PostStatus) {
@@ -35,55 +36,63 @@ function statusLabel(status: PostStatus) {
   }
 }
 
-function formatDistance(post: Pick<PostListItem, "latitude" | "longitude">) {
-  if (post.latitude === null || post.longitude === null) {
-    return "Location pending";
+function formatDistance(distanceKm: number | null) {
+  if (distanceKm === null) {
+    return "GPS off";
   }
 
-  return `${post.latitude.toFixed(2)}, ${post.longitude.toFixed(2)}`;
+  if (distanceKm < 1) {
+    return `${Math.max(0.1, Math.round(distanceKm * 10) / 10)} km`;
+  }
+
+  if (distanceKm < 10) {
+    return `${Math.round(distanceKm * 10) / 10} km`;
+  }
+
+  return `${Math.round(distanceKm)} km`;
 }
 
-export default function PostCard({ post, threadId, mode }: PostCardProps) {
+export default function PostCard({ post, threadId, mode, navigationQuery }: PostCardProps) {
   const isModeration = mode === "moderation";
   const isMain = mode === "thread-main";
+  const postThreadHref = navigationQuery ? `/posts/${post.id}?${navigationQuery}` : `/posts/${post.id}`;
+  const backHref = post.parentId
+    ? navigationQuery
+      ? `/posts/${post.parentId}?${navigationQuery}`
+      : `/posts/${post.parentId}`
+    : navigationQuery
+      ? `/?${navigationQuery}`
+      : "/";
 
   return (
     <article
       className={`post-card${isMain ? " is-main" : ""}${post.status === PostStatus.HIDDEN ? " is-hidden" : ""}`}
     >
-      <div className="meta-row">
-        <p className="meta-line">
-          <span>{post.authorDisplayName}</span>
-          <span>{new Date(post.createdAt).toLocaleString("fr-CH")}</span>
-          <span>{formatDistance(post)}</span>
-        </p>
-
-        <span className={`status-badge status-${post.status.toLowerCase()}`}>
-          {statusLabel(post.status)}
-        </span>
+      <div className="post-meta-bar">
+        <span>{post.authorDisplayName}</span>
+        <span>{new Date(post.createdAt).toLocaleString("fr-CH")}</span>
+        <span>{formatDistance(post.distanceKm)}</span>
       </div>
 
-      <div className="post-stack">
+      <div className="post-body-panel">
         <h2 className="post-title">{post.title}</h2>
         <p className="post-body">{post.body}</p>
+        {post.status !== PostStatus.ACTIVE ? (
+          <p className={`post-status status-${post.status.toLowerCase()}`}>
+            {statusLabel(post.status)}
+          </p>
+        ) : null}
       </div>
 
-      <ul className="counter-list">
-        <li>Likes {post.likeCount}</li>
-        <li>Dislikes {post.dislikeCount}</li>
-        <li>Signalements {post.reportCount}</li>
-        <li>Réponses {post.replyCount}</li>
-      </ul>
-
-      <div className="button-row">
+      <div className="post-actions-row">
         {isModeration ? (
-          <>
+          <div className="action-group">
             <form action={castModerationVoteAction}>
               <input name="postId" type="hidden" value={post.id} />
               <input name="threadId" type="hidden" value={threadId} />
               <input name="decision" type="hidden" value={ModerationDecision.KEEP} />
-              <button className="button-secondary" type="submit">
-                Garder ({post.keepVoteCount})
+              <button className="legacy-button" type="submit">
+                Good {post.keepVoteCount}
               </button>
             </form>
 
@@ -91,19 +100,19 @@ export default function PostCard({ post, threadId, mode }: PostCardProps) {
               <input name="postId" type="hidden" value={post.id} />
               <input name="threadId" type="hidden" value={threadId} />
               <input name="decision" type="hidden" value={ModerationDecision.REMOVE} />
-              <button className="button-danger" type="submit">
-                Retirer ({post.removeVoteCount})
+              <button className="legacy-button" type="submit">
+                Bad {post.removeVoteCount}
               </button>
             </form>
-          </>
+          </div>
         ) : (
-          <>
+          <div className="action-group">
             <form action={toggleReactionAction}>
               <input name="postId" type="hidden" value={post.id} />
               <input name="threadId" type="hidden" value={threadId} />
               <input name="reactionType" type="hidden" value="LIKE" />
-              <button className="button-secondary" type="submit">
-                Like
+              <button className="legacy-button" type="submit">
+                Like {post.likeCount}
               </button>
             </form>
 
@@ -111,31 +120,35 @@ export default function PostCard({ post, threadId, mode }: PostCardProps) {
               <input name="postId" type="hidden" value={post.id} />
               <input name="threadId" type="hidden" value={threadId} />
               <input name="reactionType" type="hidden" value="DISLIKE" />
-              <button className="button-secondary" type="submit">
-                Dislike
+              <button className="legacy-button" type="submit">
+                DisLike {post.dislikeCount}
               </button>
             </form>
 
-            <form action={castModerationVoteAction}>
-              <input name="postId" type="hidden" value={post.id} />
-              <input name="threadId" type="hidden" value={threadId} />
-              <input name="decision" type="hidden" value={ModerationDecision.REMOVE} />
-              <button className="button-danger" type="submit">
-                Report
-              </button>
-            </form>
-          </>
+            {mode !== "thread-main" ? (
+              <form action={castModerationVoteAction}>
+                <input name="postId" type="hidden" value={post.id} />
+                <input name="threadId" type="hidden" value={threadId} />
+                <input name="decision" type="hidden" value={ModerationDecision.REMOVE} />
+                <button className="legacy-button" type="submit">
+                  Report
+                </button>
+              </form>
+            ) : null}
+          </div>
         )}
 
-        <Link className="text-link" href={`/posts/${post.id}`}>
-          Ouvrir le thread
-        </Link>
-
-        {post.parentId ? (
-          <Link className="text-link" href={`/posts/${post.parentId}`}>
-            Parent
-          </Link>
-        ) : null}
+        <div className="action-group action-group-right">
+          {mode === "thread-main" ? (
+            <Link className="legacy-button legacy-link-button" href={backHref}>
+              Back
+            </Link>
+          ) : (
+            <Link className="legacy-button legacy-link-button" href={postThreadHref}>
+              Commentaires {post.replyCount}
+            </Link>
+          )}
+        </div>
       </div>
     </article>
   );
