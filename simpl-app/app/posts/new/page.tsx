@@ -1,62 +1,34 @@
-import Form from "next/form";
-import prisma from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+/**
+ * Last updated: 2026-04-21
+ * Changes: Replaced the demo author-bound form with the Simpl anonymous composer.
+ * Purpose: Render the top-level post creation page.
+ */
 
-export default function NewPost() {
-  async function createPost(formData: FormData) {
-    "use server";
+import Link from "next/link";
+import PostComposer from "@/app/components/PostComposer";
 
-    const title = formData.get("title") as string;
-    const content = formData.get("content") as string;
-
-    await prisma.post.create({
-      data: {
-        title,
-        content,
-        authorId: 1,
-      },
-    });
-
-    revalidatePath("/posts");
-    redirect("/posts");
-  }
-
+export default function NewPostPage() {
   return (
-    <div className="max-w-2xl mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-6">Create New Post</h1>
-      <Form action={createPost} className="space-y-6">
+    <div className="view-stack">
+      <section className="section-heading">
         <div>
-          <label htmlFor="title" className="block text-lg mb-2">
-            Title
-          </label>
-          <input
-            type="text"
-            id="title"
-            name="title"
-            placeholder="Enter your post title"
-            className="w-full px-4 py-2 border rounded-lg"
-          />
+          <p className="eyebrow">Publication</p>
+          <h1 className="page-heading">Créer un post principal</h1>
+          <p className="page-subtitle">
+            La V1 conserve un mode anonyme. Le formulaire crée directement un post racine dans le fil.
+          </p>
         </div>
-        <div>
-          <label htmlFor="content" className="block text-lg mb-2">
-            Content
-          </label>
-          <textarea
-            id="content"
-            name="content"
-            placeholder="Write your post content here..."
-            rows={6}
-            className="w-full px-4 py-2 border rounded-lg"
-          />
-        </div>
-        <button
-          type="submit"
-          className="w-full bg-blue-500 text-white py-3 rounded-lg hover:bg-blue-600"
-        >
-          Create Post
-        </button>
-      </Form>
+
+        <Link href="/" className="text-link">
+          Retour au fil
+        </Link>
+      </section>
+
+      <PostComposer
+        heading="Nouveau post"
+        submitLabel="Publier"
+        description="Ajoute un titre, un message, puis éventuellement une latitude et longitude si tu veux préparer le tri de proximité."
+      />
     </div>
   );
 }

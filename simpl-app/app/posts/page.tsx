@@ -1,26 +1,11 @@
-import prisma from "@/lib/prisma";
-import Link from 'next/link'
+/**
+ * Last updated: 2026-04-21
+ * Changes: Redirected the legacy listing route to the main Simpl feed.
+ * Purpose: Keep `/posts` as a compatible entry point while the feed lives on `/`.
+ */
 
-export default async function Posts() {
-  const posts = await prisma.post.findMany({
-    include: {
-      author: true,
-    },
-  });
+import { redirect } from "next/navigation";
 
-  return (
-    <div className="border flex flex-col flex-auto mx-7">
-      <ul className="border flex flex-col flex-auto">
-        {posts.map((post) => (
-          <li key={post.id} className="border flex flex-col max-h-70 min-h-30">
-            <span className="text-xl font-bold text-center py-5">{post.title}</span>
-            <span className="text-base text-center flex-auto">
-              by {post.content}
-            </span>
-            <Link href={`/posts/${post.id.toString()}`} className="border text-base text-center flex-auto">{post.id.toString()}</Link>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
+export default function PostsPage() {
+  redirect("/");
 }

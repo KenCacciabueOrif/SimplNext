@@ -1,12 +1,25 @@
-import { PrismaClient } from '../app/generated/prisma'
-import { withAccelerate } from '@prisma/extension-accelerate'
+/**
+ * Last updated: 2026-04-21
+ * Changes: Kept a single shared Prisma client instance for the Simpl domain and hot-reload safe development.
+ * Purpose: Expose the Prisma client used by server components and server actions.
+ */
 
-const globalForPrisma = global as unknown as { 
-    prisma: PrismaClient
+import { withAccelerate } from "@prisma/extension-accelerate";
+import { PrismaClient } from "@prisma/client";
+
+const createPrismaClient = () =>
+    new PrismaClient().$extends(withAccelerate());
+
+type ExtendedPrismaClient = ReturnType<typeof createPrismaClient>;
+
+const globalForPrisma = globalThis as unknown as {
+    prisma: ExtendedPrismaClient | undefined;
+};
+
+const prisma = globalForPrisma.prisma ?? createPrismaClient();
+
+if (process.env.NODE_ENV !== "production") {
+    globalForPrisma.prisma = prisma;
 }
 
-const prisma = globalForPrisma.prisma || new PrismaClient().$extends(withAccelerate())
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
-
-export default prisma
+export default prisma;

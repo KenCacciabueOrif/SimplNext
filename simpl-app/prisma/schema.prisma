@@ -1,12 +1,9 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// Last updated: 2026-04-21
+// Changes: Replaced the demo blog schema with the Simpl domain model for posts, reactions, moderation, and anonymous actors.
+// Purpose: Define the PostgreSQL data model used by the Next.js Simpl rebuild.
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../app/generated/prisma"
 }
 
 datasource db {
@@ -14,18 +11,94 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id    Int     @id @default(autoincrement())
-  email String  @unique
-  name  String?
-  posts Post[]
+enum PostStatus {
+  ACTIVE
+  UNDER_REVIEW
+  HIDDEN
+  REMOVED
+}
+
+enum ReactionType {
+  LIKE
+  DISLIKE
+}
+
+enum ModerationDecision {
+  KEEP
+  REMOVE
+}
+
+model Actor {
+  id              String           @id @default(cuid())
+  key             String           @unique
+  displayName     String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  posts           Post[]
+  reactions       Reaction[]
+  moderationVotes ModerationVote[]
+
+  @@map("simpl_actors")
 }
 
 model Post {
-  id        Int     @id @default(autoincrement())
-  title     String
-  content   String?
-  published Boolean @default(false)
-  authorId  Int
-  author    User    @relation(fields: [authorId], references: [id])
+  id               String             @id @default(cuid())
+  title            String
+  body             String
+  authorId         String
+  parentId         String?
+  rootId           String?
+  latitude         Float?
+  longitude        Float?
+  likeCount        Int                @default(0)
+  dislikeCount     Int                @default(0)
+  reportCount      Int                @default(0)
+  keepVoteCount    Int                @default(0)
+  removeVoteCount  Int                @default(0)
+  status           PostStatus         @default(ACTIVE)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  author           Actor              @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  parent           Post?              @relation("PostReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies          Post[]             @relation("PostReplies")
+  root             Post?              @relation("PostThread", fields: [rootId], references: [id], onDelete: Cascade)
+  threadPosts      Post[]             @relation("PostThread")
+  reactions        Reaction[]
+  moderationVotes  ModerationVote[]
+
+  @@index([createdAt])
+  @@index([parentId, createdAt])
+  @@index([rootId, createdAt])
+  @@index([status, createdAt])
+  @@map("simpl_posts")
+}
+
+model Reaction {
+  id        String       @id @default(cuid())
+  actorId   String
+  postId    String
+  type      ReactionType
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  actor     Actor        @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  post      Post         @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([actorId, postId])
+  @@index([postId, type])
+  @@map("simpl_reactions")
+}
+
+model ModerationVote {
+  id        String             @id @default(cuid())
+  actorId   String
+  postId    String
+  decision  ModerationDecision
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  actor     Actor              @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  post      Post               @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([actorId, postId])
+  @@index([postId, decision])
+  @@map("simpl_moderation_votes")
 }
