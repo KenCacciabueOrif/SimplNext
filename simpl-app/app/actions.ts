@@ -53,6 +53,41 @@ async function syncPostState(
   tx: PrismaTransactionClient,
   postId: string,
 ) {
+  // Reactions only: update like/dislike counts without touching the moderation state.
+  // Calling evaluateModerationPolicy here would reset posts with 0 moderation votes to
+  // UNDER_REVIEW, which would incorrectly treat every reaction as a moderation event.
+  const reactions = await tx.reaction.findMany({
+    where: { postId },
+    select: { type: true },
+  });
+
+  const likeCount = reactions.filter((r) => r.type === ReactionType.LIKE).length;
+  const dislikeCount = reactions.filter((r) => r.type === ReactionType.DISLIKE).length;
+
+  const post = await tx.post.update({
+    where: { id: postId },
+    data: { likeCount, dislikeCount },
+  });
+
+  return {
+    deleted: false,
+    state: {
+      dislikeCount: post.dislikeCount,
+      keepVoteCount: post.keepVoteCount,
+      likeCount: post.likeCount,
+      removeVoteCount: post.removeVoteCount,
+      reportCount: post.reportCount,
+      status: post.status,
+    },
+  };
+}
+
+// Full moderation sync: recounts moderation votes, evaluates the policy, and
+// applies the resulting status/visibility changes — including hard delete.
+async function syncModerationState(
+  tx: PrismaTransactionClient,
+  postId: string,
+) {
   const [reactions, moderationVotes] = await Promise.all([
     tx.reaction.findMany({
       where: { postId },
@@ -64,18 +99,10 @@ async function syncPostState(
     }),
   ]);
 
-  const likeCount =
-    reactions.filter((reaction) => reaction.type === ReactionType.LIKE).length;
-  const dislikeCount =
-    reactions.filter((reaction) => reaction.type === ReactionType.DISLIKE).length;
-  const keepVoteCount =
-    moderationVotes.filter(
-      (vote) => vote.decision === ModerationDecision.KEEP,
-    ).length;
-  const removeVoteCount =
-    moderationVotes.filter(
-      (vote) => vote.decision === ModerationDecision.REMOVE,
-    ).length;
+  const likeCount = reactions.filter((r) => r.type === ReactionType.LIKE).length;
+  const dislikeCount = reactions.filter((r) => r.type === ReactionType.DISLIKE).length;
+  const keepVoteCount = moderationVotes.filter((v) => v.decision === ModerationDecision.KEEP).length;
+  const removeVoteCount = moderationVotes.filter((v) => v.decision === ModerationDecision.REMOVE).length;
 
   const moderationOutcome = evaluateModerationPolicy(keepVoteCount, removeVoteCount);
 
@@ -315,7 +342,7 @@ export async function castModerationVoteAction(
       });
     }
 
-    const syncResult = await syncPostState(tx, postId);
+    const syncResult = await syncModerationState(tx, postId);
 
     if (syncResult.deleted) {
       return {
