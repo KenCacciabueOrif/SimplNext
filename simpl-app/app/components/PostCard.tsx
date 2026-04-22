@@ -1,15 +1,15 @@
 /**
- * Last updated: 2026-04-21
- * Changes: Replaced the mock distance display with the actual viewer-relative distance when available and preserved query context in navigation links.
+ * Last updated: 2026-04-22
+ * Changes: Replaced Like/DisLike/Good/Bad form submits with optimistic client controls and restored Report availability on the main thread post.
  * Purpose: Present Simpl posts with their metadata, counters, and available actions.
  */
 
 import Link from "next/link";
 import { ModerationDecision, PostStatus } from "@prisma/client";
 import {
-  castModerationVoteAction,
-  toggleReactionAction,
+  castModerationVoteFormAction,
 } from "@/app/actions";
+import PostActionControls from "@/app/components/PostActionControls";
 import type { PostListItem } from "@/lib/simpl";
 
 type PostCardMode = "feed" | "thread" | "thread-main" | "moderation";
@@ -87,54 +87,40 @@ export default function PostCard({ post, threadId, mode, navigationQuery }: Post
       <div className="post-actions-row">
         {isModeration ? (
           <div className="action-group">
-            <form action={castModerationVoteAction}>
-              <input name="postId" type="hidden" value={post.id} />
-              <input name="threadId" type="hidden" value={threadId} />
-              <input name="decision" type="hidden" value={ModerationDecision.KEEP} />
-              <button className="legacy-button" type="submit">
-                Good {post.keepVoteCount}
-              </button>
-            </form>
+            <PostActionControls
+              postId={post.id}
+              threadId={threadId}
+              mode="moderation"
+              likeCount={post.likeCount}
+              dislikeCount={post.dislikeCount}
+              keepVoteCount={post.keepVoteCount}
+              removeVoteCount={post.removeVoteCount}
+              viewerReaction={post.viewerReaction}
+              viewerModerationDecision={post.viewerModerationDecision}
+            />
+          </div>
+        ) : (
+          <div className="action-group">
+            <PostActionControls
+              postId={post.id}
+              threadId={threadId}
+              mode="reactions"
+              likeCount={post.likeCount}
+              dislikeCount={post.dislikeCount}
+              keepVoteCount={post.keepVoteCount}
+              removeVoteCount={post.removeVoteCount}
+              viewerReaction={post.viewerReaction}
+              viewerModerationDecision={post.viewerModerationDecision}
+            />
 
-            <form action={castModerationVoteAction}>
+            <form action={castModerationVoteFormAction}>
               <input name="postId" type="hidden" value={post.id} />
               <input name="threadId" type="hidden" value={threadId} />
               <input name="decision" type="hidden" value={ModerationDecision.REMOVE} />
               <button className="legacy-button" type="submit">
-                Bad {post.removeVoteCount}
+                Report
               </button>
             </form>
-          </div>
-        ) : (
-          <div className="action-group">
-            <form action={toggleReactionAction}>
-              <input name="postId" type="hidden" value={post.id} />
-              <input name="threadId" type="hidden" value={threadId} />
-              <input name="reactionType" type="hidden" value="LIKE" />
-              <button className="legacy-button" type="submit">
-                Like {post.likeCount}
-              </button>
-            </form>
-
-            <form action={toggleReactionAction}>
-              <input name="postId" type="hidden" value={post.id} />
-              <input name="threadId" type="hidden" value={threadId} />
-              <input name="reactionType" type="hidden" value="DISLIKE" />
-              <button className="legacy-button" type="submit">
-                DisLike {post.dislikeCount}
-              </button>
-            </form>
-
-            {mode !== "thread-main" ? (
-              <form action={castModerationVoteAction}>
-                <input name="postId" type="hidden" value={post.id} />
-                <input name="threadId" type="hidden" value={threadId} />
-                <input name="decision" type="hidden" value={ModerationDecision.REMOVE} />
-                <button className="legacy-button" type="submit">
-                  Report
-                </button>
-              </form>
-            ) : null}
           </div>
         )}
 

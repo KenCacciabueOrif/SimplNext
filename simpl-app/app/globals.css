@@ -1,6 +1,6 @@
 /*
- * Last updated: 2026-04-21
- * Changes: Added responsive layout rules for narrow, medium, and wide windows while keeping the legacy Simpl black-and-white look.
+ * Last updated: 2026-04-22
+ * Changes: Added active/pending button feedback styles, restored the missing top border on the composer panel, styled the composer submit action, constrained the thread layout, and added a collapsible thread reply composer that starts hidden.
  * Purpose: Define the global visual system and adaptive behavior of the Simpl UI.
  */
 
@@ -53,6 +53,9 @@ select {
 }
 
 .app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
   margin: 0 auto;
   max-width: 100%;
   min-height: 100vh;
@@ -143,8 +146,10 @@ select {
 
 .app-main {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-  min-height: calc(100vh - 84px);
+  min-height: 0;
+  overflow: hidden;
 }
 
 .screen-stack {
@@ -276,9 +281,44 @@ select {
   color: var(--panel-active-text);
 }
 
+.legacy-button.is-active {
+  background: var(--panel-active);
+  color: var(--panel-active-text);
+}
+
+.legacy-button:disabled {
+  cursor: wait;
+  opacity: 0.82;
+}
+
 .composer-card form {
   display: grid;
   gap: 10px;
+}
+
+.button-row {
+  display: flex;
+  justify-content: center;
+}
+
+.button {
+  align-items: center;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.82rem;
+  justify-content: center;
+  min-height: 32px;
+  min-width: 148px;
+  padding: 0 12px;
+  text-align: center;
+}
+
+.button:hover {
+  background: var(--panel-active);
+  color: var(--panel-active-text);
 }
 
 .field-grid {
@@ -293,6 +333,61 @@ select {
   border-left: 1px solid var(--border);
   border-right: 1px solid var(--border);
   padding: 10px;
+}
+
+.composer-card {
+  border-top: 1px solid var(--border);
+}
+
+.reply-form-shell {
+  background: var(--background);
+  flex: 0 0 auto;
+  margin-top: 0;
+  position: relative;
+}
+
+.reply-form-shell.is-open {
+  border-top: 1px solid var(--border);
+}
+
+.reply-toggle-button {
+  align-items: center;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.82rem;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 14px;
+  text-align: center;
+  width: 100%;
+}
+
+.reply-toggle-button:hover {
+  background: var(--panel-active);
+  color: var(--panel-active-text);
+}
+
+.reply-form-panel {
+  background: var(--background);
+}
+
+.thread-screen {
+  height: 100%;
+  overflow: hidden;
+}
+
+.thread-replies-screen {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.thread-replies-list {
+  display: flex;
+  flex-direction: column;
 }
 
 .panel-title {

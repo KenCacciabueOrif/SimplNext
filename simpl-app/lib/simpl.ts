@@ -1,11 +1,11 @@
 /**
- * Last updated: 2026-04-21
- * Changes: Added viewer geolocation parsing and real distance-based sorting for feed and moderation queries.
+ * Last updated: 2026-04-22
+ * Changes: Added a shared moderation policy evaluator and applied it to homepage/moderation visibility rules.
  * Purpose: Centralize server-side data access and shared domain rules for the Simpl application.
  */
 
 import { cookies } from "next/headers";
-import { PostStatus } from "@prisma/client";
+import { ModerationDecision, PostStatus, ReactionType } from "@prisma/client";
 import prisma from "@/lib/prisma";
 
 const ACTOR_COOKIE = "simpl-actor-key";
@@ -15,6 +15,14 @@ export type FeedSort = "new" | "top" | "distance";
 export type ViewerLocation = {
   latitude: number;
   longitude: number;
+};
+
+export type ModerationPolicyOutcome = {
+  totalVotes: number;
+  shouldDelete: boolean;
+  inModeration: boolean;
+  visibleOnHomepage: boolean;
+  status: PostStatus;
 };
 
 export type PostListItem = {
@@ -35,6 +43,8 @@ export type PostListItem = {
   createdAt: Date;
   replyCount: number;
   distanceKm: number | null;
+  viewerReaction: ReactionType | null;
+  viewerModerationDecision: ModerationDecision | null;
 };
 
 type PostQueryRecord = Parameters<typeof toPostListItem>[0];
@@ -104,6 +114,8 @@ function toPostListItem(post: {
   createdAt: Date;
   author: { displayName: string };
   _count: { replies: number };
+  reactions: { type: ReactionType }[];
+  moderationVotes: { decision: ModerationDecision }[];
 }, viewerLocation?: ViewerLocation | null): PostListItem {
   return {
     authorDisplayName: post.author.displayName,
@@ -123,6 +135,8 @@ function toPostListItem(post: {
     rootId: post.rootId,
     status: post.status,
     title: post.title,
+    viewerModerationDecision: post.moderationVotes[0]?.decision ?? null,
+    viewerReaction: post.reactions[0]?.type ?? null,
   };
 }
 
@@ -155,6 +169,61 @@ export function resolveFeedSort(input?: string, viewerLocation?: ViewerLocation 
   }
 
   return "new";
+}
+
+export function evaluateModerationPolicy(
+  keepVoteCount: number,
+  removeVoteCount: number,
+): ModerationPolicyOutcome {
+  const totalVotes = keepVoteCount + removeVoteCount;
+
+  if (totalVotes < 10) {
+    return {
+      inModeration: true,
+      shouldDelete: false,
+      status: PostStatus.UNDER_REVIEW,
+      totalVotes,
+      visibleOnHomepage: true,
+    };
+  }
+
+  if (removeVoteCount >= 2 * keepVoteCount) {
+    return {
+      inModeration: false,
+      shouldDelete: true,
+      status: PostStatus.REMOVED,
+      totalVotes,
+      visibleOnHomepage: false,
+    };
+  }
+
+  if (keepVoteCount >= 2 * removeVoteCount) {
+    return {
+      inModeration: false,
+      shouldDelete: false,
+      status: PostStatus.ACTIVE,
+      totalVotes,
+      visibleOnHomepage: true,
+    };
+  }
+
+  if (removeVoteCount > keepVoteCount) {
+    return {
+      inModeration: true,
+      shouldDelete: false,
+      status: PostStatus.HIDDEN,
+      totalVotes,
+      visibleOnHomepage: false,
+    };
+  }
+
+  return {
+    inModeration: true,
+    shouldDelete: false,
+    status: PostStatus.UNDER_REVIEW,
+    totalVotes,
+    visibleOnHomepage: true,
+  };
 }
 
 export async function getViewerActor() {
@@ -196,10 +265,11 @@ export async function ensureAnonymousActor() {
 }
 
 export async function getFeedPosts(sort: FeedSort, viewerLocation?: ViewerLocation | null) {
+  const viewerActor = await getViewerActor();
+
   const posts = (await prisma.post.findMany({
     where: {
       parentId: null,
-      status: PostStatus.ACTIVE,
     },
     orderBy:
       sort === "top"
@@ -207,6 +277,20 @@ export async function getFeedPosts(sort: FeedSort, viewerLocation?: ViewerLocati
         : [{ createdAt: "desc" }],
     include: {
       author: true,
+      moderationVotes: {
+        select: { decision: true },
+        take: 1,
+        where: {
+          actorId: viewerActor?.id ?? "",
+        },
+      },
+      reactions: {
+        select: { type: true },
+        take: 1,
+        where: {
+          actorId: viewerActor?.id ?? "",
+        },
+      },
       _count: {
         select: { replies: true },
       },
@@ -214,14 +298,49 @@ export async function getFeedPosts(sort: FeedSort, viewerLocation?: ViewerLocati
   })) as unknown as PostQueryRecord[];
 
   const normalizedPosts = posts.map((post) => toPostListItem(post, viewerLocation));
-  return sort === "distance" ? sortPostsByDistance(normalizedPosts) : normalizedPosts;
+  const visiblePosts = normalizedPosts.filter((post) => {
+    const outcome = evaluateModerationPolicy(post.keepVoteCount, post.removeVoteCount);
+
+    if (!outcome.visibleOnHomepage) {
+      return false;
+    }
+
+    // A reporter should not see a post in homepage while their REMOVE vote is still active.
+    if (post.viewerModerationDecision === ModerationDecision.REMOVE) {
+      return false;
+    }
+
+    return true;
+  });
+
+  return sort === "distance" ? sortPostsByDistance(visiblePosts) : visiblePosts;
 }
 
-export async function getThreadPageData(postId: string, viewerLocation?: ViewerLocation | null) {
+export async function getThreadPageData(
+  postId: string,
+  sort: FeedSort = "new",
+  viewerLocation?: ViewerLocation | null,
+) {
+  const viewerActor = await getViewerActor();
+
   const post = (await prisma.post.findUnique({
     where: { id: postId },
     include: {
       author: true,
+      moderationVotes: {
+        select: { decision: true },
+        take: 1,
+        where: {
+          actorId: viewerActor?.id ?? "",
+        },
+      },
+      reactions: {
+        select: { type: true },
+        take: 1,
+        where: {
+          actorId: viewerActor?.id ?? "",
+        },
+      },
       _count: {
         select: { replies: true },
       },
@@ -235,22 +354,39 @@ export async function getThreadPageData(postId: string, viewerLocation?: ViewerL
   const replies = (await prisma.post.findMany({
     where: {
       parentId: postId,
-      status: {
-        not: PostStatus.REMOVED,
-      },
+      status: PostStatus.ACTIVE,
     },
-    orderBy: [{ createdAt: "asc" }],
+    orderBy:
+      sort === "top"
+        ? [{ likeCount: "desc" }, { createdAt: "desc" }]
+        : [{ createdAt: "desc" }],
     include: {
       author: true,
+      moderationVotes: {
+        select: { decision: true },
+        take: 1,
+        where: {
+          actorId: viewerActor?.id ?? "",
+        },
+      },
+      reactions: {
+        select: { type: true },
+        take: 1,
+        where: {
+          actorId: viewerActor?.id ?? "",
+        },
+      },
       _count: {
         select: { replies: true },
       },
     },
   })) as unknown as PostQueryRecord[];
 
+  const normalizedReplies = replies.map((reply) => toPostListItem(reply, viewerLocation));
+
   return {
     post: toPostListItem(post, viewerLocation),
-    replies: replies.map((reply) => toPostListItem(reply, viewerLocation)),
+    replies: sort === "distance" ? sortPostsByDistance(normalizedReplies) : normalizedReplies,
   };
 }
 
@@ -258,15 +394,27 @@ export async function getModerationQueue(
   sort: FeedSort = "new",
   viewerLocation?: ViewerLocation | null,
 ) {
+  const viewerActor = await getViewerActor();
+
   const posts = (await prisma.post.findMany({
-    where: {
-      status: {
-        in: [PostStatus.UNDER_REVIEW, PostStatus.HIDDEN],
-      },
-    },
+    where: {},
     orderBy: [{ removeVoteCount: "desc" }, { createdAt: "desc" }],
     include: {
       author: true,
+      moderationVotes: {
+        select: { decision: true },
+        take: 1,
+        where: {
+          actorId: viewerActor?.id ?? "",
+        },
+      },
+      reactions: {
+        select: { type: true },
+        take: 1,
+        where: {
+          actorId: viewerActor?.id ?? "",
+        },
+      },
       _count: {
         select: { replies: true },
       },
@@ -274,5 +422,10 @@ export async function getModerationQueue(
   })) as unknown as PostQueryRecord[];
 
   const normalizedPosts = posts.map((post) => toPostListItem(post, viewerLocation));
-  return sort === "distance" ? sortPostsByDistance(normalizedPosts) : normalizedPosts;
+  const moderationPosts = normalizedPosts.filter((post) => {
+    const outcome = evaluateModerationPolicy(post.keepVoteCount, post.removeVoteCount);
+    return outcome.inModeration;
+  });
+
+  return sort === "distance" ? sortPostsByDistance(moderationPosts) : moderationPosts;
 }

@@ -1,5 +1,5 @@
-> Last updated: 2026-04-21
-> Changes: Kept the rebuild status in sync and added a follow-up todo for slow feedback on reaction and moderation buttons.
+> Last updated: 2026-04-22
+> Changes: Documented the implemented moderation threshold policy, reporter-specific homepage filtering, and instant queued action feedback.
 
 # SimplNext
 
@@ -21,6 +21,8 @@ This folder contains the active rebuild of Simpl with Next.js.
 - The app now has a normalized Prisma schema for anonymous actors, posts, reactions, and moderation votes.
 - Feed, thread, post creation, and moderation pages are wired in the Next.js app.
 - The shared layout and page composition are now being pushed closer to the original black-and-white Simpl interface.
+- Reaction and moderation action buttons now update instantly, persist in a local browser queue, and sync asynchronously to the backend.
+- Moderation now follows vote-threshold and ratio rules, with hard-delete outcomes and reporter-specific homepage filtering while REMOVE is active.
 
 ## Maintenance Steps
 
@@ -31,5 +33,4 @@ This folder contains the active rebuild of Simpl with Next.js.
 ## Todo
 
 - Add milestone notes as the rebuild reaches parity with the legacy prototype.
-- Improve perceived refresh speed for Like, DisLike, Good, and Bad actions after submission.
 - Document deployment and environment handling once the runtime setup is stabilized.

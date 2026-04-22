@@ -1,6 +1,6 @@
 /**
- * Last updated: 2026-04-21
- * Changes: Expanded the seed to generate a larger Simpl dataset with more than twenty posts, several reply threads, reactions, and moderation cases.
+ * Last updated: 2026-04-22
+ * Changes: Added explicit moderation-policy scenario posts and aligned seed counter/status recalculation with the new threshold rules.
  * Purpose: Seed development data for the Simpl PostgreSQL domain.
  */
 
@@ -23,6 +23,53 @@ type SeedPostInput = {
   rootId?: string;
   status?: PostStatus;
 };
+
+function evaluateModerationPolicy(keepVoteCount: number, removeVoteCount: number) {
+  const totalVotes = keepVoteCount + removeVoteCount;
+
+  if (totalVotes < 10) {
+    return {
+      inModeration: true,
+      shouldDelete: false,
+      status: PostStatus.UNDER_REVIEW,
+      visibleOnHomepage: true,
+    };
+  }
+
+  if (removeVoteCount >= 2 * keepVoteCount) {
+    return {
+      inModeration: false,
+      shouldDelete: true,
+      status: PostStatus.REMOVED,
+      visibleOnHomepage: false,
+    };
+  }
+
+  if (keepVoteCount >= 2 * removeVoteCount) {
+    return {
+      inModeration: false,
+      shouldDelete: false,
+      status: PostStatus.ACTIVE,
+      visibleOnHomepage: true,
+    };
+  }
+
+  if (removeVoteCount > keepVoteCount) {
+    return {
+      inModeration: true,
+      shouldDelete: false,
+      status: PostStatus.HIDDEN,
+      visibleOnHomepage: false,
+    };
+  }
+
+  return {
+    inModeration: true,
+    shouldDelete: false,
+    status: PostStatus.UNDER_REVIEW,
+    visibleOnHomepage: true,
+  };
+}
 
 async function createPost(input: SeedPostInput) {
   return prisma.post.create({
@@ -63,12 +110,12 @@ async function updatePostCounters(postId: string) {
     (vote) => vote.decision === ModerationDecision.REMOVE,
   ).length;
 
-  const status =
-    removeVoteCount >= 3 && removeVoteCount > keepVoteCount
-      ? PostStatus.HIDDEN
-      : removeVoteCount > 0
-        ? PostStatus.UNDER_REVIEW
-        : PostStatus.ACTIVE;
+  const moderationOutcome = evaluateModerationPolicy(keepVoteCount, removeVoteCount);
+
+  if (moderationOutcome.shouldDelete) {
+    await prisma.post.delete({ where: { id: postId } });
+    return replyCount;
+  }
 
   await prisma.post.update({
     where: { id: postId },
@@ -78,7 +125,9 @@ async function updatePostCounters(postId: string) {
       keepVoteCount,
       removeVoteCount,
       reportCount: removeVoteCount,
-      status,
+      isHomepageVisible: moderationOutcome.visibleOnHomepage,
+      isInModeration: moderationOutcome.inModeration,
+      status: moderationOutcome.status,
     },
   });
 
@@ -91,7 +140,7 @@ async function main() {
   await prisma.post.deleteMany();
   await prisma.actor.deleteMany();
 
-  const [alice, bob, clara, diego, emma] = await Promise.all([
+  const [alice, bob, clara, diego, emma, farid, gina, hugo, ines, julien, karim, lea] = await Promise.all([
     prisma.actor.create({
       data: { key: "seed-alice", displayName: "Anon-Alice" },
     }),
@@ -106,6 +155,27 @@ async function main() {
     }),
     prisma.actor.create({
       data: { key: "seed-emma", displayName: "Anon-Emma" },
+    }),
+    prisma.actor.create({
+      data: { key: "seed-farid", displayName: "Anon-Farid" },
+    }),
+    prisma.actor.create({
+      data: { key: "seed-gina", displayName: "Anon-Gina" },
+    }),
+    prisma.actor.create({
+      data: { key: "seed-hugo", displayName: "Anon-Hugo" },
+    }),
+    prisma.actor.create({
+      data: { key: "seed-ines", displayName: "Anon-Ines" },
+    }),
+    prisma.actor.create({
+      data: { key: "seed-julien", displayName: "Anon-Julien" },
+    }),
+    prisma.actor.create({
+      data: { key: "seed-karim", displayName: "Anon-Karim" },
+    }),
+    prisma.actor.create({
+      data: { key: "seed-lea", displayName: "Anon-Lea" },
     }),
   ]);
 
@@ -347,7 +417,58 @@ async function main() {
     }),
   ]);
 
-  const allPosts = [...rootPosts, ...replyPosts, flaggedPost, hiddenPost];
+  const moderationScenarioPosts = await Promise.all([
+    createPost({
+      title: "SCENARIO - <10 votes (one vote test)",
+      body: "Seeded below 10 votes so one additional vote still keeps it in moderation and homepage.",
+      authorId: farid.id,
+      latitude: 46.5229,
+      longitude: 6.6402,
+      status: PostStatus.UNDER_REVIEW,
+    }),
+    createPost({
+      title: "SCENARIO - trigger delete with one REMOVE",
+      body: "Seeded at 9 votes so one extra REMOVE reaches >=10 with bad >= 2x good.",
+      authorId: gina.id,
+      latitude: 46.5234,
+      longitude: 6.6415,
+      status: PostStatus.UNDER_REVIEW,
+    }),
+    createPost({
+      title: "SCENARIO - trigger approval with one KEEP",
+      body: "Seeded at 9 votes so one extra KEEP reaches >=10 with good >= 2x bad.",
+      authorId: hugo.id,
+      latitude: 46.5241,
+      longitude: 6.6392,
+      status: PostStatus.ACTIVE,
+    }),
+    createPost({
+      title: "SCENARIO - trigger moderation-only with one REMOVE",
+      body: "Seeded at 9 votes so one extra REMOVE reaches >=10 with bad > good but without 2x ratio.",
+      authorId: ines.id,
+      latitude: 46.5174,
+      longitude: 6.6269,
+      status: PostStatus.HIDDEN,
+    }),
+    createPost({
+      title: "SCENARIO - trigger dual visibility with one KEEP",
+      body: "Seeded at 9 votes so one extra KEEP reaches >=10 with good >= bad and no 2x ratio.",
+      authorId: julien.id,
+      latitude: 46.5188,
+      longitude: 6.6301,
+      status: PostStatus.UNDER_REVIEW,
+    }),
+    createPost({
+      title: "SCENARIO - reporter specific homepage hide (one vote toggle)",
+      body: "Reporter starts with active REMOVE; one KEEP vote from that reporter restores homepage visibility for that actor.",
+      authorId: karim.id,
+      latitude: 46.5211,
+      longitude: 6.6359,
+      status: PostStatus.UNDER_REVIEW,
+    }),
+  ]);
+
+  const allPosts = [...rootPosts, ...replyPosts, flaggedPost, hiddenPost, ...moderationScenarioPosts];
 
   await prisma.reaction.createMany({
     data: [
@@ -412,6 +533,66 @@ async function main() {
         postId: replyPosts[4].id,
         decision: ModerationDecision.REMOVE,
       },
+      // Scenario 1: total 8 votes (5 remove / 3 keep) => one vote stays below 10
+      { actorId: alice.id, postId: moderationScenarioPosts[0].id, decision: ModerationDecision.REMOVE },
+      { actorId: bob.id, postId: moderationScenarioPosts[0].id, decision: ModerationDecision.REMOVE },
+      { actorId: clara.id, postId: moderationScenarioPosts[0].id, decision: ModerationDecision.REMOVE },
+      { actorId: diego.id, postId: moderationScenarioPosts[0].id, decision: ModerationDecision.REMOVE },
+      { actorId: emma.id, postId: moderationScenarioPosts[0].id, decision: ModerationDecision.REMOVE },
+      { actorId: farid.id, postId: moderationScenarioPosts[0].id, decision: ModerationDecision.KEEP },
+      { actorId: gina.id, postId: moderationScenarioPosts[0].id, decision: ModerationDecision.KEEP },
+      { actorId: hugo.id, postId: moderationScenarioPosts[0].id, decision: ModerationDecision.KEEP },
+
+      // Scenario 2: total 9 votes (6 remove / 3 keep) => one REMOVE triggers hard delete
+      { actorId: alice.id, postId: moderationScenarioPosts[1].id, decision: ModerationDecision.REMOVE },
+      { actorId: bob.id, postId: moderationScenarioPosts[1].id, decision: ModerationDecision.REMOVE },
+      { actorId: clara.id, postId: moderationScenarioPosts[1].id, decision: ModerationDecision.REMOVE },
+      { actorId: diego.id, postId: moderationScenarioPosts[1].id, decision: ModerationDecision.REMOVE },
+      { actorId: emma.id, postId: moderationScenarioPosts[1].id, decision: ModerationDecision.REMOVE },
+      { actorId: farid.id, postId: moderationScenarioPosts[1].id, decision: ModerationDecision.REMOVE },
+      { actorId: gina.id, postId: moderationScenarioPosts[1].id, decision: ModerationDecision.KEEP },
+      { actorId: hugo.id, postId: moderationScenarioPosts[1].id, decision: ModerationDecision.KEEP },
+      { actorId: ines.id, postId: moderationScenarioPosts[1].id, decision: ModerationDecision.KEEP },
+
+      // Scenario 3: total 9 votes (6 keep / 3 remove) => one KEEP triggers moderation exit
+      { actorId: alice.id, postId: moderationScenarioPosts[2].id, decision: ModerationDecision.KEEP },
+      { actorId: bob.id, postId: moderationScenarioPosts[2].id, decision: ModerationDecision.KEEP },
+      { actorId: clara.id, postId: moderationScenarioPosts[2].id, decision: ModerationDecision.KEEP },
+      { actorId: diego.id, postId: moderationScenarioPosts[2].id, decision: ModerationDecision.KEEP },
+      { actorId: emma.id, postId: moderationScenarioPosts[2].id, decision: ModerationDecision.KEEP },
+      { actorId: farid.id, postId: moderationScenarioPosts[2].id, decision: ModerationDecision.KEEP },
+      { actorId: gina.id, postId: moderationScenarioPosts[2].id, decision: ModerationDecision.REMOVE },
+      { actorId: hugo.id, postId: moderationScenarioPosts[2].id, decision: ModerationDecision.REMOVE },
+      { actorId: ines.id, postId: moderationScenarioPosts[2].id, decision: ModerationDecision.REMOVE },
+
+      // Scenario 4: total 9 votes (5 remove / 4 keep) => one REMOVE triggers moderation-only hidden
+      { actorId: alice.id, postId: moderationScenarioPosts[3].id, decision: ModerationDecision.REMOVE },
+      { actorId: bob.id, postId: moderationScenarioPosts[3].id, decision: ModerationDecision.REMOVE },
+      { actorId: clara.id, postId: moderationScenarioPosts[3].id, decision: ModerationDecision.REMOVE },
+      { actorId: diego.id, postId: moderationScenarioPosts[3].id, decision: ModerationDecision.REMOVE },
+      { actorId: emma.id, postId: moderationScenarioPosts[3].id, decision: ModerationDecision.REMOVE },
+      { actorId: farid.id, postId: moderationScenarioPosts[3].id, decision: ModerationDecision.KEEP },
+      { actorId: gina.id, postId: moderationScenarioPosts[3].id, decision: ModerationDecision.KEEP },
+      { actorId: hugo.id, postId: moderationScenarioPosts[3].id, decision: ModerationDecision.KEEP },
+      { actorId: ines.id, postId: moderationScenarioPosts[3].id, decision: ModerationDecision.KEEP },
+
+      // Scenario 5: total 9 votes (5 keep / 4 remove) => one KEEP keeps moderation+homepage branch at >=10
+      { actorId: alice.id, postId: moderationScenarioPosts[4].id, decision: ModerationDecision.KEEP },
+      { actorId: bob.id, postId: moderationScenarioPosts[4].id, decision: ModerationDecision.KEEP },
+      { actorId: clara.id, postId: moderationScenarioPosts[4].id, decision: ModerationDecision.KEEP },
+      { actorId: diego.id, postId: moderationScenarioPosts[4].id, decision: ModerationDecision.KEEP },
+      { actorId: emma.id, postId: moderationScenarioPosts[4].id, decision: ModerationDecision.KEEP },
+      { actorId: farid.id, postId: moderationScenarioPosts[4].id, decision: ModerationDecision.REMOVE },
+      { actorId: gina.id, postId: moderationScenarioPosts[4].id, decision: ModerationDecision.REMOVE },
+      { actorId: hugo.id, postId: moderationScenarioPosts[4].id, decision: ModerationDecision.REMOVE },
+      { actorId: ines.id, postId: moderationScenarioPosts[4].id, decision: ModerationDecision.REMOVE },
+
+      // Scenario 6: reporter-specific hide (one active REMOVE)
+      { actorId: alice.id, postId: moderationScenarioPosts[5].id, decision: ModerationDecision.REMOVE },
+      { actorId: bob.id, postId: moderationScenarioPosts[5].id, decision: ModerationDecision.KEEP },
+      { actorId: clara.id, postId: moderationScenarioPosts[5].id, decision: ModerationDecision.KEEP },
+      { actorId: diego.id, postId: moderationScenarioPosts[5].id, decision: ModerationDecision.KEEP },
+      { actorId: emma.id, postId: moderationScenarioPosts[5].id, decision: ModerationDecision.KEEP },
     ],
   });
 

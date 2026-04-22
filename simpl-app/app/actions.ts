@@ -1,6 +1,6 @@
 /**
- * Last updated: 2026-04-21
- * Changes: Added server actions for creating posts, toggling reactions, and casting moderation decisions.
+ * Last updated: 2026-04-22
+ * Changes: Returned canonical post action state from reaction/moderation actions, added moderation vote toggle-off parity, and implemented the vote-threshold moderation policy with hard delete outcomes.
  * Purpose: Centralize write operations for the Simpl application.
  */
 
@@ -14,7 +14,18 @@ import {
   ReactionType,
 } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { ensureAnonymousActor } from "@/lib/simpl";
+import { ensureAnonymousActor, evaluateModerationPolicy } from "@/lib/simpl";
+
+export type PostActionState = {
+  likeCount: number;
+  dislikeCount: number;
+  keepVoteCount: number;
+  removeVoteCount: number;
+  reportCount: number;
+  status: PostStatus;
+  viewerReaction: ReactionType | null;
+  viewerModerationDecision: ModerationDecision | null;
+};
 
 type PrismaTransactionClient = Parameters<
   Parameters<typeof prisma.$transaction>[0]
@@ -66,36 +77,85 @@ async function syncPostState(
       (vote) => vote.decision === ModerationDecision.REMOVE,
     ).length;
 
-  let status: PostStatus = PostStatus.ACTIVE;
+  const moderationOutcome = evaluateModerationPolicy(keepVoteCount, removeVoteCount);
 
-  if (removeVoteCount > 0) {
-    status = PostStatus.UNDER_REVIEW;
+  if (moderationOutcome.shouldDelete) {
+    await tx.post.delete({ where: { id: postId } });
+
+    return {
+      deleted: true,
+      state: {
+        dislikeCount,
+        keepVoteCount,
+        likeCount,
+        removeVoteCount,
+        reportCount: removeVoteCount,
+        status: PostStatus.REMOVED,
+      },
+    };
   }
 
-  if (removeVoteCount >= 3 && removeVoteCount > keepVoteCount) {
-    status = PostStatus.HIDDEN;
-  }
-
-  if (keepVoteCount >= removeVoteCount && keepVoteCount > 0) {
-    status = PostStatus.ACTIVE;
-  }
-
-  return tx.post.update({
+  const post = await tx.post.update({
     where: { id: postId },
     data: {
       dislikeCount,
+      isHomepageVisible: moderationOutcome.visibleOnHomepage,
+      isInModeration: moderationOutcome.inModeration,
       keepVoteCount,
       likeCount,
       removeVoteCount,
       reportCount: removeVoteCount,
-      status,
+      status: moderationOutcome.status,
     },
   });
+
+  return {
+    deleted: false,
+    state: {
+      dislikeCount: post.dislikeCount,
+      keepVoteCount: post.keepVoteCount,
+      likeCount: post.likeCount,
+      removeVoteCount: post.removeVoteCount,
+      reportCount: post.reportCount,
+      status: post.status,
+    },
+  };
+}
+
+async function getViewerPostActionState(
+  tx: PrismaTransactionClient,
+  actorId: string,
+  postId: string,
+) {
+  const [reaction, moderationVote] = await Promise.all([
+    tx.reaction.findUnique({
+      where: {
+        actorId_postId: {
+          actorId,
+          postId,
+        },
+      },
+      select: { type: true },
+    }),
+    tx.moderationVote.findUnique({
+      where: {
+        actorId_postId: {
+          actorId,
+          postId,
+        },
+      },
+      select: { decision: true },
+    }),
+  ]);
+
+  return {
+    viewerModerationDecision: moderationVote?.decision ?? null,
+    viewerReaction: reaction?.type ?? null,
+  };
 }
 
 function revalidatePostSurfaces(postId: string, threadId: string) {
   revalidatePath("/");
-  revalidatePath("/posts");
   revalidatePath("/moderation");
   revalidatePath(`/posts/${postId}`);
   revalidatePath(`/posts/${threadId}`);
@@ -151,7 +211,9 @@ export async function createPostAction(formData: FormData) {
   redirect(`/posts/${created.id}`);
 }
 
-export async function toggleReactionAction(formData: FormData) {
+export async function toggleReactionAction(
+  formData: FormData,
+): Promise<PostActionState> {
   const actor = await ensureAnonymousActor();
   const postId = normalizeText(formData.get("postId"));
   const threadId = getThreadId(formData, postId);
@@ -161,7 +223,9 @@ export async function toggleReactionAction(formData: FormData) {
     throw new Error("Invalid reaction payload.");
   }
 
-  await prisma.$transaction(async (tx) => {
+  const nextType = reactionType as ReactionType;
+
+  const snapshot = await prisma.$transaction(async (tx) => {
     const existing = await tx.reaction.findUnique({
       where: {
         actorId_postId: {
@@ -170,8 +234,6 @@ export async function toggleReactionAction(formData: FormData) {
         },
       },
     });
-
-    const nextType = reactionType as ReactionType;
 
     if (existing?.type === nextType) {
       await tx.reaction.delete({ where: { id: existing.id } });
@@ -190,13 +252,32 @@ export async function toggleReactionAction(formData: FormData) {
       });
     }
 
-    await syncPostState(tx, postId);
+    const syncResult = await syncPostState(tx, postId);
+
+    if (syncResult.deleted) {
+      return {
+        ...syncResult.state,
+        viewerModerationDecision: null,
+        viewerReaction: null,
+      } satisfies PostActionState;
+    }
+
+    const viewerState = await getViewerPostActionState(tx, actor.id, postId);
+
+    return {
+      ...syncResult.state,
+      ...viewerState,
+    } satisfies PostActionState;
   });
 
   revalidatePostSurfaces(postId, threadId);
+
+  return snapshot;
 }
 
-export async function castModerationVoteAction(formData: FormData) {
+export async function castModerationVoteAction(
+  formData: FormData,
+): Promise<PostActionState> {
   const actor = await ensureAnonymousActor();
   const postId = normalizeText(formData.get("postId"));
   const threadId = getThreadId(formData, postId);
@@ -206,26 +287,57 @@ export async function castModerationVoteAction(formData: FormData) {
     throw new Error("Invalid moderation payload.");
   }
 
-  await prisma.$transaction(async (tx) => {
-    await tx.moderationVote.upsert({
+  const snapshot = await prisma.$transaction(async (tx) => {
+    const nextDecision = decision as ModerationDecision;
+    const existing = await tx.moderationVote.findUnique({
       where: {
         actorId_postId: {
           actorId: actor.id,
           postId,
         },
       },
-      update: {
-        decision: decision as ModerationDecision,
-      },
-      create: {
-        actorId: actor.id,
-        decision: decision as ModerationDecision,
-        postId,
-      },
     });
 
-    await syncPostState(tx, postId);
+    if (existing?.decision === nextDecision) {
+      await tx.moderationVote.delete({ where: { id: existing.id } });
+    } else if (existing) {
+      await tx.moderationVote.update({
+        where: { id: existing.id },
+        data: { decision: nextDecision },
+      });
+    } else {
+      await tx.moderationVote.create({
+        data: {
+          actorId: actor.id,
+          decision: nextDecision,
+          postId,
+        },
+      });
+    }
+
+    const syncResult = await syncPostState(tx, postId);
+
+    if (syncResult.deleted) {
+      return {
+        ...syncResult.state,
+        viewerModerationDecision: null,
+        viewerReaction: null,
+      } satisfies PostActionState;
+    }
+
+    const viewerState = await getViewerPostActionState(tx, actor.id, postId);
+
+    return {
+      ...syncResult.state,
+      ...viewerState,
+    } satisfies PostActionState;
   });
 
   revalidatePostSurfaces(postId, threadId);
+
+  return snapshot;
+}
+
+export async function castModerationVoteFormAction(formData: FormData): Promise<void> {
+  await castModerationVoteAction(formData);
 }

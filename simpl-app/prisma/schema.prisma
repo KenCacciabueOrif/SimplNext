@@ -55,6 +55,8 @@ model Post {
   reportCount      Int                @default(0)
   keepVoteCount    Int                @default(0)
   removeVoteCount  Int                @default(0)
+  isHomepageVisible Boolean           @default(true)
+  isInModeration    Boolean           @default(false)
   status           PostStatus         @default(ACTIVE)
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
@@ -69,6 +71,8 @@ model Post {
   @@index([createdAt])
   @@index([parentId, createdAt])
   @@index([rootId, createdAt])
+  @@index([isHomepageVisible, createdAt])
+  @@index([isInModeration, removeVoteCount, createdAt])
   @@index([status, createdAt])
   @@map("simpl_posts")
 }

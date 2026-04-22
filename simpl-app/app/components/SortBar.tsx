@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * Last updated: 2026-04-21
- * Changes: Made the distance control functional with browser geolocation and URL-backed sorting state.
+ * Last updated: 2026-04-22
+ * Changes: Allowed the sort controls to target dynamic thread routes in addition to the feed and moderation pages.
  * Purpose: Render the sort controls in the same structural slot as the original Simpl interface.
  */
 
@@ -12,7 +12,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { FeedSort, ViewerLocation } from "@/lib/simpl";
 
 type SortBarProps = {
-  pathname: "/" | "/moderation";
+  pathname: string;
   sort: FeedSort;
   viewerLocation: ViewerLocation | null;
 };
