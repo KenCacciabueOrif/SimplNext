@@ -1,4 +1,6 @@
 > Last updated: 2026-04-22
+> Changes: Implemented tri-state multi-filter sorting (Popularity/Date/Distance) with combined ranking by averaged normalized filter ranks across feed, thread replies, and moderation queue.
+> Last updated: 2026-04-22
 > Changes: Switched post actions to an instant local update flow backed by a browser-persisted chronological queue, aligned Good/Bad with Like/DisLike toggle-off behavior, restored Report on the main thread post, constrained thread pages so the main post and replies scroll together, made the thread reply composer collapsible and hidden by default, and moved reported comments out of normal thread lists.
 > Last updated: 2026-04-22
 > Changes: Implemented the vote-threshold moderation policy (including hard delete), added reporter-specific homepage filtering, and kept the existing instant action-feedback/thread UX improvements.
@@ -41,7 +43,10 @@ Local social network with community moderation.
 - Moderation now uses vote thresholds and ratios: below ten moderation votes the post stays in moderation while remaining homepage-visible; at ten or more votes, ratio rules decide delete, moderation exit, or moderation persistence.
 - Reporters are filtered out from homepage visibility while their REMOVE vote remains active on a post.
 - The main thread post now exposes the Report action in comment mode.
-- Thread replies now support the same popularity/date/distance sorting model as the feed, and the main thread post scrolls with them in the same pane.
+- Feed, thread replies, and moderation queue now use tri-state filters for Popularity/Date/Distance (down, up, off) that can run simultaneously.
+- Combined ordering is computed as the average of normalized per-filter ranks, with equal weights and stable tie-breakers.
+- When Distance is active, posts without coordinates are always placed at the end of the list.
+- The main thread post still scrolls with replies in the same pane.
 - Reported comments are removed from normal thread reply lists and remain accessible from moderation, where opening a comment still provides Back to parent context navigation.
 - The thread reply composer now starts collapsed and can be toggled open without shrinking the replies viewport by default.
 - The new Simpl tables are isolated from the earlier demo schema through dedicated table names.
@@ -52,7 +57,7 @@ Local social network with community moderation.
 ## Important Code Comments
 
 - [app/actions.ts](app/actions.ts): server-side mutation entry point that now returns canonical action state for fast client reconciliation.
-- [lib/simpl.ts](lib/simpl.ts): shared moderation policy evaluator and visibility filtering logic for home/moderation views.
+- [lib/simpl.ts](lib/simpl.ts): shared moderation policy evaluator, visibility filtering, and tri-state aggregate ranking helpers.
 - [app/components/PostActionControls.tsx](app/components/PostActionControls.tsx): client-side action controls that update immediately and subscribe to backend acknowledgements from the browser queue.
 - [app/components/SortBar.tsx](app/components/SortBar.tsx): shared sort controls used by the feed, moderation queue, and thread replies.
 - [app/components/ThreadReplyComposer.tsx](app/components/ThreadReplyComposer.tsx): client-side toggle wrapper that keeps the thread reply form hidden until the user opens it.

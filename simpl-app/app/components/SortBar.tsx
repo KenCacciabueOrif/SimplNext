@@ -2,54 +2,82 @@
 
 /**
  * Last updated: 2026-04-22
- * Changes: Allowed the sort controls to target dynamic thread routes in addition to the feed and moderation pages.
+ * Changes: Replaced single-sort controls with tri-state filter toggles (down/up/off) for popularity, date, and distance.
  * Purpose: Render the sort controls in the same structural slot as the original Simpl interface.
  */
 
 import { startTransition, useState } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { FeedSort, ViewerLocation } from "@/lib/simpl";
+import type { FeedSortState, SortMode, ViewerLocation } from "@/lib/simpl";
 
 type SortBarProps = {
   pathname: string;
-  sort: FeedSort;
+  sortState: FeedSortState;
   viewerLocation: ViewerLocation | null;
 };
 
-function buildSortHref(pathname: string, currentParams: URLSearchParams, nextSort: FeedSort) {
-  const nextParams = new URLSearchParams(currentParams.toString());
-  nextParams.set("sort", nextSort);
-  const queryString = nextParams.toString();
+function cycleSortMode(mode: SortMode): SortMode {
+  if (mode === "down") {
+    return "up";
+  }
 
-  return queryString ? `${pathname}?${queryString}` : pathname;
+  if (mode === "up") {
+    return "off";
+  }
+
+  return "down";
 }
 
-export default function SortBar({ pathname, sort, viewerLocation }: SortBarProps) {
+function getModeIndicator(mode: SortMode) {
+  if (mode === "down") {
+    return "↓";
+  }
+
+  if (mode === "up") {
+    return "↑";
+  }
+
+  return "=";
+}
+
+export default function SortBar({ pathname, sortState, viewerLocation }: SortBarProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [distanceError, setDistanceError] = useState<string | null>(null);
   const [isLocating, setIsLocating] = useState(false);
 
-  const popularityHref = buildSortHref(pathname, new URLSearchParams(searchParams.toString()), "top");
-  const dateHref = buildSortHref(pathname, new URLSearchParams(searchParams.toString()), "new");
-
-  function navigateToDistance(latitude: number, longitude: number) {
+  function navigateToSortState(nextSortState: FeedSortState, latitude?: number, longitude?: number) {
     const nextParams = new URLSearchParams(searchParams.toString());
-    nextParams.set("sort", "distance");
-    nextParams.set("lat", latitude.toFixed(6));
-    nextParams.set("lng", longitude.toFixed(6));
+    nextParams.delete("sort");
+    nextParams.set("popularity", nextSortState.popularity);
+    nextParams.set("date", nextSortState.date);
+    nextParams.set("distance", nextSortState.distance);
+
+    if (typeof latitude === "number" && typeof longitude === "number") {
+      nextParams.set("lat", latitude.toFixed(6));
+      nextParams.set("lng", longitude.toFixed(6));
+    }
 
     startTransition(() => {
       router.push(`${pathname}?${nextParams.toString()}`);
     });
   }
 
-  function handleDistanceClick() {
+  function handleToggle(filter: keyof FeedSortState) {
     setDistanceError(null);
+    const nextMode = cycleSortMode(sortState[filter]);
+    const nextSortState: FeedSortState = {
+      ...sortState,
+      [filter]: nextMode,
+    };
+
+    if (filter !== "distance" || nextMode === "off") {
+      navigateToSortState(nextSortState);
+      return;
+    }
 
     if (viewerLocation) {
-      navigateToDistance(viewerLocation.latitude, viewerLocation.longitude);
+      navigateToSortState(nextSortState, viewerLocation.latitude, viewerLocation.longitude);
       return;
     }
 
@@ -63,7 +91,7 @@ export default function SortBar({ pathname, sort, viewerLocation }: SortBarProps
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setIsLocating(false);
-        navigateToDistance(position.coords.latitude, position.coords.longitude);
+        navigateToSortState(nextSortState, position.coords.latitude, position.coords.longitude);
       },
       (error) => {
         setIsLocating(false);
@@ -86,19 +114,27 @@ export default function SortBar({ pathname, sort, viewerLocation }: SortBarProps
   return (
     <>
       <div className="legacy-sortbar" aria-label="Sort controls">
-        <Link href={popularityHref} className={sort === "top" ? "is-active" : undefined}>
-          Popularity ↓
-        </Link>
-        <Link href={dateHref} className={sort === "new" ? "is-active" : undefined}>
-          Date ↓
-        </Link>
         <button
           type="button"
-          className={sort === "distance" ? "is-active" : undefined}
-          onClick={handleDistanceClick}
+          className={sortState.popularity !== "off" ? "is-active" : undefined}
+          onClick={() => handleToggle("popularity")}
+        >
+          Popularity {getModeIndicator(sortState.popularity)}
+        </button>
+        <button
+          type="button"
+          className={sortState.date !== "off" ? "is-active" : undefined}
+          onClick={() => handleToggle("date")}
+        >
+          Date {getModeIndicator(sortState.date)}
+        </button>
+        <button
+          type="button"
+          className={sortState.distance !== "off" ? "is-active" : undefined}
+          onClick={() => handleToggle("distance")}
           disabled={isLocating}
         >
-          {isLocating ? "Distance..." : "Distance ↓"}
+          {isLocating ? "Distance..." : `Distance ${getModeIndicator(sortState.distance)}`}
         </button>
       </div>
 

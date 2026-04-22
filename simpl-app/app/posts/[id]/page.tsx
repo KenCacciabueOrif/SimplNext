@@ -1,6 +1,6 @@
 /**
  * Last updated: 2026-04-22
- * Changes: Added thread-level sort controls, independent reply scrolling, a collapsible reply composer that starts hidden, and scrolling of the main post with the replies.
+ * Changes: Added tri-state multi-filter sorting for replies and preserved filter modes in thread navigation links.
  * Purpose: Render a thread page for a selected post or comment.
  */
 
@@ -10,9 +10,10 @@ import PostCard from "@/app/components/PostCard";
 import SortBar from "@/app/components/SortBar";
 import ThreadReplyComposer from "@/app/components/ThreadReplyComposer";
 import {
+  DEFAULT_FEED_SORT_STATE,
   getThreadPageData,
   parseViewerLocation,
-  resolveFeedSort,
+  resolveFeedSortState,
   type PostListItem,
 } from "@/lib/simpl";
 
@@ -21,13 +22,20 @@ export default async function PostPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ sort?: string; lat?: string; lng?: string }>;
+  searchParams: Promise<{
+    popularity?: string;
+    date?: string;
+    distance?: string;
+    sort?: string;
+    lat?: string;
+    lng?: string;
+  }>;
 }) {
   const { id } = await params;
-  const { lat, lng, sort: sortParam } = await searchParams;
+  const { lat, lng, sort, popularity, date, distance } = await searchParams;
   const viewerLocation = parseViewerLocation(lat, lng);
-  const sort = resolveFeedSort(sortParam, viewerLocation);
-  const threadData = await getThreadPageData(id, sort, viewerLocation);
+  const sortState = resolveFeedSortState({ date, distance, popularity, sort }, viewerLocation);
+  const threadData = await getThreadPageData(id, sortState, viewerLocation);
 
   if (!threadData) {
     notFound();
@@ -36,7 +44,9 @@ export default async function PostPage({
   const { post, replies }: { post: PostListItem; replies: PostListItem[] } = threadData;
   const navigationParams = new URLSearchParams();
 
-  navigationParams.set("sort", sort);
+  navigationParams.set("popularity", sortState.popularity ?? DEFAULT_FEED_SORT_STATE.popularity);
+  navigationParams.set("date", sortState.date ?? DEFAULT_FEED_SORT_STATE.date);
+  navigationParams.set("distance", sortState.distance ?? DEFAULT_FEED_SORT_STATE.distance);
 
   if (lat && lng) {
     navigationParams.set("lat", lat);
@@ -61,7 +71,7 @@ export default async function PostPage({
         <span className="thread-bar-title">Commentaires</span>
       </div>
 
-      <SortBar pathname={`/posts/${id}`} sort={sort} viewerLocation={viewerLocation} />
+      <SortBar pathname={`/posts/${id}`} sortState={sortState} viewerLocation={viewerLocation} />
 
       <div className="thread-replies-screen">
         <div className="thread-replies-list">

@@ -1,25 +1,39 @@
 /**
- * Last updated: 2026-04-21
- * Changes: Added support for distance sorting inside the moderation queue and preserved viewer location in post links.
+ * Last updated: 2026-04-22
+ * Changes: Switched moderation sorting to tri-state multi-filter modes and persisted all filter modes in navigation links.
  * Purpose: Render the posts currently under community review.
  */
 
 import PostCard from "@/app/components/PostCard";
 import SortBar from "@/app/components/SortBar";
-import { getModerationQueue, parseViewerLocation, resolveFeedSort } from "@/lib/simpl";
+import {
+  DEFAULT_FEED_SORT_STATE,
+  getModerationQueue,
+  parseViewerLocation,
+  resolveFeedSortState,
+} from "@/lib/simpl";
 
 export default async function ModerationPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string; lat?: string; lng?: string }>;
+  searchParams: Promise<{
+    popularity?: string;
+    date?: string;
+    distance?: string;
+    sort?: string;
+    lat?: string;
+    lng?: string;
+  }>;
 }) {
-  const { lat, lng, sort: sortParam } = await searchParams;
+  const { lat, lng, sort, popularity, date, distance } = await searchParams;
   const viewerLocation = parseViewerLocation(lat, lng);
-  const sort = resolveFeedSort(sortParam, viewerLocation);
-  const posts = await getModerationQueue(sort, viewerLocation);
+  const sortState = resolveFeedSortState({ date, distance, popularity, sort }, viewerLocation);
+  const posts = await getModerationQueue(sortState, viewerLocation);
   const navigationParams = new URLSearchParams();
 
-  navigationParams.set("sort", sort);
+  navigationParams.set("popularity", sortState.popularity ?? DEFAULT_FEED_SORT_STATE.popularity);
+  navigationParams.set("date", sortState.date ?? DEFAULT_FEED_SORT_STATE.date);
+  navigationParams.set("distance", sortState.distance ?? DEFAULT_FEED_SORT_STATE.distance);
 
   if (viewerLocation) {
     navigationParams.set("lat", viewerLocation.latitude.toFixed(6));
@@ -30,7 +44,7 @@ export default async function ModerationPage({
 
   return (
     <div className="screen-stack">
-      <SortBar pathname="/moderation" sort={sort} viewerLocation={viewerLocation} />
+      <SortBar pathname="/moderation" sortState={sortState} viewerLocation={viewerLocation} />
 
       {posts.length === 0 ? (
         <div className="empty-state">

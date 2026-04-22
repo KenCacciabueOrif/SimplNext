@@ -1,6 +1,6 @@
 /**
  * Last updated: 2026-04-22
- * Changes: Added a shared moderation policy evaluator and applied it to homepage/moderation visibility rules.
+ * Changes: Added tri-state multi-filter sorting with averaged normalized ranks across popularity/date/distance while preserving moderation policy helpers.
  * Purpose: Centralize server-side data access and shared domain rules for the Simpl application.
  */
 
@@ -10,7 +10,19 @@ import prisma from "@/lib/prisma";
 
 const ACTOR_COOKIE = "simpl-actor-key";
 
-export type FeedSort = "new" | "top" | "distance";
+export type SortMode = "down" | "up" | "off";
+
+export type FeedSortState = {
+  popularity: SortMode;
+  date: SortMode;
+  distance: SortMode;
+};
+
+export const DEFAULT_FEED_SORT_STATE: FeedSortState = {
+  popularity: "down",
+  date: "down",
+  distance: "down",
+};
 
 export type ViewerLocation = {
   latitude: number;
@@ -75,25 +87,153 @@ function calculateDistanceKm(
   return 2 * earthRadiusKm * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
 }
 
-function sortPostsByDistance(posts: PostListItem[]) {
-  return [...posts].sort((left, right) => {
-    if (left.distanceKm === null && right.distanceKm === null) {
-      return right.createdAt.getTime() - left.createdAt.getTime();
-    }
-
-    if (left.distanceKm === null) {
-      return 1;
-    }
-
-    if (right.distanceKm === null) {
-      return -1;
-    }
-
-    if (left.distanceKm !== right.distanceKm) {
-      return left.distanceKm - right.distanceKm;
-    }
-
+function compareCreatedAtDesc(left: PostListItem, right: PostListItem) {
+  if (left.createdAt.getTime() !== right.createdAt.getTime()) {
     return right.createdAt.getTime() - left.createdAt.getTime();
+  }
+
+  return left.id.localeCompare(right.id);
+}
+
+function compareByPopularity(left: PostListItem, right: PostListItem, mode: Exclude<SortMode, "off">) {
+  const leftScore = left.likeCount - left.dislikeCount;
+  const rightScore = right.likeCount - right.dislikeCount;
+
+  if (leftScore !== rightScore) {
+    return mode === "down" ? rightScore - leftScore : leftScore - rightScore;
+  }
+
+  return compareCreatedAtDesc(left, right);
+}
+
+function compareByDate(left: PostListItem, right: PostListItem, mode: Exclude<SortMode, "off">) {
+  if (left.createdAt.getTime() !== right.createdAt.getTime()) {
+    return mode === "down"
+      ? right.createdAt.getTime() - left.createdAt.getTime()
+      : left.createdAt.getTime() - right.createdAt.getTime();
+  }
+
+  return left.id.localeCompare(right.id);
+}
+
+function compareByDistance(left: PostListItem, right: PostListItem, mode: Exclude<SortMode, "off">) {
+  if (left.distanceKm === null && right.distanceKm === null) {
+    return compareCreatedAtDesc(left, right);
+  }
+
+  if (left.distanceKm === null) {
+    return 1;
+  }
+
+  if (right.distanceKm === null) {
+    return -1;
+  }
+
+  if (left.distanceKm !== right.distanceKm) {
+    return mode === "down" ? left.distanceKm - right.distanceKm : right.distanceKm - left.distanceKm;
+  }
+
+  return compareCreatedAtDesc(left, right);
+}
+
+function buildNormalizedRankMap(
+  posts: PostListItem[],
+  comparator: (left: PostListItem, right: PostListItem) => number,
+) {
+  const sorted = [...posts].sort(comparator);
+  const rankMap = new Map<string, number>();
+  const denominator = sorted.length <= 1 ? 1 : sorted.length - 1;
+
+  sorted.forEach((post, index) => {
+    rankMap.set(post.id, index / denominator);
+  });
+
+  return rankMap;
+}
+
+function getActiveSortModes(sortState: FeedSortState) {
+  const activeModes: Array<"popularity" | "date" | "distance"> = [];
+
+  if (sortState.popularity !== "off") {
+    activeModes.push("popularity");
+  }
+
+  if (sortState.date !== "off") {
+    activeModes.push("date");
+  }
+
+  if (sortState.distance !== "off") {
+    activeModes.push("distance");
+  }
+
+  return activeModes;
+}
+
+function sortPostsByAggregateRanks(posts: PostListItem[], sortState: FeedSortState) {
+  const activeModes = getActiveSortModes(sortState);
+
+  if (activeModes.length === 0) {
+    return [...posts].sort(compareCreatedAtDesc);
+  }
+
+  const dateMode = sortState.date === "off" ? null : sortState.date;
+  const distanceMode = sortState.distance === "off" ? null : sortState.distance;
+  const popularityMode = sortState.popularity === "off" ? null : sortState.popularity;
+
+  const rankMaps = {
+    date:
+      dateMode === null
+        ? null
+        : buildNormalizedRankMap(posts, (left, right) => compareByDate(left, right, dateMode)),
+    distance:
+      distanceMode === null
+        ? null
+        : buildNormalizedRankMap(posts, (left, right) => compareByDistance(left, right, distanceMode)),
+    popularity:
+      popularityMode === null
+        ? null
+        : buildNormalizedRankMap(posts, (left, right) => compareByPopularity(left, right, popularityMode)),
+  };
+
+  const scoreByPost = new Map<string, number>();
+
+  posts.forEach((post) => {
+    let total = 0;
+
+    if (rankMaps.popularity) {
+      total += rankMaps.popularity.get(post.id) ?? 1;
+    }
+
+    if (rankMaps.date) {
+      total += rankMaps.date.get(post.id) ?? 1;
+    }
+
+    if (rankMaps.distance) {
+      total += rankMaps.distance.get(post.id) ?? 1;
+    }
+
+    scoreByPost.set(post.id, total / activeModes.length);
+  });
+
+  return [...posts].sort((left, right) => {
+    if (sortState.distance !== "off") {
+      if (left.distanceKm === null && right.distanceKm !== null) {
+        return 1;
+      }
+
+      if (left.distanceKm !== null && right.distanceKm === null) {
+        return -1;
+      }
+    }
+
+    const leftScore = scoreByPost.get(left.id) ?? 1;
+    const rightScore = scoreByPost.get(right.id) ?? 1;
+
+    if (leftScore !== rightScore) {
+      return leftScore - rightScore;
+    }
+
+    return compareCreatedAtDesc(left, right);
   });
 }
 
@@ -159,16 +299,52 @@ export function parseViewerLocation(latitude?: string, longitude?: string): View
   return { latitude: parsedLatitude, longitude: parsedLongitude };
 }
 
-export function resolveFeedSort(input?: string, viewerLocation?: ViewerLocation | null): FeedSort {
-  if (input === "distance" && viewerLocation) {
-    return "distance";
+function parseSortMode(input?: string): SortMode {
+  if (input === "down" || input === "up" || input === "off") {
+    return input;
   }
 
-  if (input === "top") {
-    return "top";
+  return "off";
+}
+
+export function resolveFeedSortState(input: {
+  popularity?: string;
+  date?: string;
+  distance?: string;
+  sort?: string;
+}, viewerLocation?: ViewerLocation | null): FeedSortState {
+  const sortState: FeedSortState = {
+    popularity: parseSortMode(input.popularity),
+    date: parseSortMode(input.date),
+    distance: parseSortMode(input.distance),
+  };
+
+  // Backward compatibility with the previous single-sort query parameter.
+  if (!input.popularity && !input.date && !input.distance) {
+    if (input.sort === "top") {
+      sortState.popularity = "down";
+      sortState.date = "off";
+      sortState.distance = "off";
+    } else if (input.sort === "distance") {
+      sortState.popularity = "off";
+      sortState.date = "off";
+      sortState.distance = "down";
+    } else if (!input.sort) {
+      // First load with no params at all: apply the full default (all down).
+      return { ...DEFAULT_FEED_SORT_STATE };
+    } else {
+      sortState.popularity = "off";
+      sortState.date = "down";
+      sortState.distance = "off";
+    }
   }
 
-  return "new";
+  // Distance requires a known viewer location; drop it silently if unavailable.
+  if (!viewerLocation) {
+    sortState.distance = "off";
+  }
+
+  return sortState;
 }
 
 export function evaluateModerationPolicy(
@@ -264,17 +440,14 @@ export async function ensureAnonymousActor() {
   });
 }
 
-export async function getFeedPosts(sort: FeedSort, viewerLocation?: ViewerLocation | null) {
+export async function getFeedPosts(sortState: FeedSortState, viewerLocation?: ViewerLocation | null) {
   const viewerActor = await getViewerActor();
 
   const posts = (await prisma.post.findMany({
     where: {
       parentId: null,
     },
-    orderBy:
-      sort === "top"
-        ? [{ likeCount: "desc" }, { createdAt: "desc" }]
-        : [{ createdAt: "desc" }],
+    orderBy: [{ createdAt: "desc" }],
     include: {
       author: true,
       moderationVotes: {
@@ -313,12 +486,12 @@ export async function getFeedPosts(sort: FeedSort, viewerLocation?: ViewerLocati
     return true;
   });
 
-  return sort === "distance" ? sortPostsByDistance(visiblePosts) : visiblePosts;
+  return sortPostsByAggregateRanks(visiblePosts, sortState);
 }
 
 export async function getThreadPageData(
   postId: string,
-  sort: FeedSort = "new",
+  sortState: FeedSortState = DEFAULT_FEED_SORT_STATE,
   viewerLocation?: ViewerLocation | null,
 ) {
   const viewerActor = await getViewerActor();
@@ -356,10 +529,7 @@ export async function getThreadPageData(
       parentId: postId,
       status: PostStatus.ACTIVE,
     },
-    orderBy:
-      sort === "top"
-        ? [{ likeCount: "desc" }, { createdAt: "desc" }]
-        : [{ createdAt: "desc" }],
+    orderBy: [{ createdAt: "desc" }],
     include: {
       author: true,
       moderationVotes: {
@@ -386,19 +556,19 @@ export async function getThreadPageData(
 
   return {
     post: toPostListItem(post, viewerLocation),
-    replies: sort === "distance" ? sortPostsByDistance(normalizedReplies) : normalizedReplies,
+    replies: sortPostsByAggregateRanks(normalizedReplies, sortState),
   };
 }
 
 export async function getModerationQueue(
-  sort: FeedSort = "new",
+  sortState: FeedSortState = DEFAULT_FEED_SORT_STATE,
   viewerLocation?: ViewerLocation | null,
 ) {
   const viewerActor = await getViewerActor();
 
   const posts = (await prisma.post.findMany({
     where: {},
-    orderBy: [{ removeVoteCount: "desc" }, { createdAt: "desc" }],
+    orderBy: [{ createdAt: "desc" }],
     include: {
       author: true,
       moderationVotes: {
@@ -427,5 +597,5 @@ export async function getModerationQueue(
     return outcome.inModeration;
   });
 
-  return sort === "distance" ? sortPostsByDistance(moderationPosts) : moderationPosts;
+  return sortPostsByAggregateRanks(moderationPosts, sortState);
 }

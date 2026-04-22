@@ -1,6 +1,6 @@
 /**
- * Last updated: 2026-04-21
- * Changes: Added support for location-aware distance sorting and preserved sort context in feed navigation.
+ * Last updated: 2026-04-22
+ * Changes: Switched feed sorting to tri-state multi-filter controls and persisted each filter mode in navigation params.
  * Purpose: Render the main feed for root posts.
  */
 
@@ -8,24 +8,34 @@ import Link from "next/link";
 import PostCard from "@/app/components/PostCard";
 import SortBar from "@/app/components/SortBar";
 import {
+  DEFAULT_FEED_SORT_STATE,
   getFeedPosts,
   parseViewerLocation,
-  resolveFeedSort,
+  resolveFeedSortState,
   type PostListItem,
 } from "@/lib/simpl";
 
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string; lat?: string; lng?: string }>;
+  searchParams: Promise<{
+    popularity?: string;
+    date?: string;
+    distance?: string;
+    sort?: string;
+    lat?: string;
+    lng?: string;
+  }>;
 }) {
-  const { lat, lng, sort: sortParam } = await searchParams;
+  const { lat, lng, sort, popularity, date, distance } = await searchParams;
   const viewerLocation = parseViewerLocation(lat, lng);
-  const sort = resolveFeedSort(sortParam, viewerLocation);
-  const posts = await getFeedPosts(sort, viewerLocation);
+  const sortState = resolveFeedSortState({ date, distance, popularity, sort }, viewerLocation);
+  const posts = await getFeedPosts(sortState, viewerLocation);
   const navigationParams = new URLSearchParams();
 
-  navigationParams.set("sort", sort);
+  navigationParams.set("popularity", sortState.popularity ?? DEFAULT_FEED_SORT_STATE.popularity);
+  navigationParams.set("date", sortState.date ?? DEFAULT_FEED_SORT_STATE.date);
+  navigationParams.set("distance", sortState.distance ?? DEFAULT_FEED_SORT_STATE.distance);
 
   if (viewerLocation) {
     navigationParams.set("lat", viewerLocation.latitude.toFixed(6));
@@ -36,7 +46,7 @@ export default async function Home({
 
   return (
     <div className="screen-stack">
-      <SortBar pathname="/" sort={sort} viewerLocation={viewerLocation} />
+      <SortBar pathname="/" sortState={sortState} viewerLocation={viewerLocation} />
 
       {posts.length === 0 ? (
         <div className="empty-state">
