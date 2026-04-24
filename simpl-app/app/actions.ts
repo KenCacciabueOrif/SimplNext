@@ -14,7 +14,9 @@ import {
   ReactionType,
 } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { ensureAnonymousActor, evaluateModerationPolicy } from "@/lib/simpl";
+import { ensureAnonymousActor } from "@/lib/simpl";
+import { evaluateModerationPolicy } from "@/lib/policy";
+import { buildNavigationQuery, withNavigationQuery } from "@/lib/navigation";
 
 export type PostActionState = {
   likeCount: number;
@@ -42,81 +44,6 @@ function parseOptionalFloat(value: FormDataEntryValue | null) {
 
   const parsed = Number.parseFloat(value);
   return Number.isFinite(parsed) ? parsed : null;
-}
-
-function parseSortModeValue(value: string | null): "down" | "up" | "off" | null {
-  if (value === "down" || value === "up" || value === "off") {
-    return value;
-  }
-
-  return null;
-}
-
-function parseViewerCoordinate(value: string | null, min: number, max: number) {
-  if (!value) {
-    return null;
-  }
-
-  const parsed = Number(value);
-
-  if (!Number.isFinite(parsed) || parsed < min || parsed > max) {
-    return null;
-  }
-
-  return parsed;
-}
-
-function buildNavigationQuery(rawNavigationQuery: FormDataEntryValue | null) {
-  if (typeof rawNavigationQuery !== "string" || rawNavigationQuery.trim() === "") {
-    return "";
-  }
-
-  const input = new URLSearchParams(rawNavigationQuery);
-  const output = new URLSearchParams();
-
-  const popularity = parseSortModeValue(input.get("popularity"));
-  const date = parseSortModeValue(input.get("date"));
-  const distance = parseSortModeValue(input.get("distance"));
-
-  if (popularity) {
-    output.set("popularity", popularity);
-  }
-
-  if (date) {
-    output.set("date", date);
-  }
-
-  if (distance) {
-    output.set("distance", distance);
-  }
-
-  const latitude = parseViewerCoordinate(input.get("lat"), -90, 90);
-  const longitude = parseViewerCoordinate(input.get("lng"), -180, 180);
-
-  if (latitude !== null && longitude !== null) {
-    output.set("lat", latitude.toFixed(6));
-    output.set("lng", longitude.toFixed(6));
-
-    if (!distance) {
-      output.set("distance", "down");
-    }
-  }
-
-  const geo = input.get("geo");
-
-  if (geo === "on" || geo === "off") {
-    output.set("geo", geo);
-  }
-
-  return output.toString();
-}
-
-function withNavigationQuery(pathname: string, navigationQuery: string) {
-  if (!navigationQuery) {
-    return pathname;
-  }
-
-  return `${pathname}?${navigationQuery}`;
 }
 
 function getThreadId(formData: FormData, fallbackPostId: string) {

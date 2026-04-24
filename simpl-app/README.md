@@ -1,4 +1,6 @@
 > Last updated: 2026-04-24
+> Changes: Phase 2 — Modularized lib/simpl.ts into dedicated domain modules: pure sorting in lib/sorting.ts, moderation policy in lib/policy.ts, URL navigation helpers in lib/navigation.ts. Domain types consolidated in lib/types.ts. app/actions.ts now imports from lib/navigation.ts and lib/policy.ts instead of duplicating those helpers locally.
+> Last updated: 2026-04-24
 > Changes: Added browser/Next cache-restore reconciliation hooks (`pageshow`, `visibilitychange`, `focus`, `popstate`) so geolocation permission and feed distance context are rechecked even when navigation restores a cached page state.
 > Last updated: 2026-04-24
 > Changes: Added explicit permission re-test on home page entry: if geolocation is already authorized, the app immediately reapplies GPS distance behavior (`distance=down` with coordinates). If not authorized, the distance mode remains `=` and the dedicated geolocation request button stays visible.
@@ -65,9 +67,14 @@ Local social network with community moderation.
 - Geolocation IndexedDB writer on [app/components/geolocation/GeoIndexedDbWriter.tsx](app/components/geolocation/GeoIndexedDbWriter.tsx).
 - Geolocation feed refresher on [app/components/geolocation/GeoFeedRefresher.tsx](app/components/geolocation/GeoFeedRefresher.tsx).
 - Geolocation IndexedDB helpers on [app/components/geolocation/locationIndexedDb.ts](app/components/geolocation/locationIndexedDb.ts).
+- Geolocation browser-state helpers on [app/components/geolocation/browserState.ts](app/components/geolocation/browserState.ts).
 - Local-first Like/DisLike/Good/Bad controls on [app/components/PostActionControls.tsx](app/components/PostActionControls.tsx).
 - Browser-persisted chronological action queue on [app/components/postActionQueue.ts](app/components/postActionQueue.ts).
 - Shared post queries and anonymous actor helpers on [lib/simpl.ts](lib/simpl.ts).
+- Domain types (SortMode, FeedSortState, ViewerLocation, ModerationPolicyOutcome, PostListItem) on [lib/types.ts](lib/types.ts).
+- Pure tri-state sorting algorithms and aggregate rank engine on [lib/sorting.ts](lib/sorting.ts).
+- Vote-threshold moderation policy evaluator on [lib/policy.ts](lib/policy.ts).
+- URL navigation query builder on [lib/navigation.ts](lib/navigation.ts).
 - Prisma client setup on [lib/prisma.ts](lib/prisma.ts).
 - Prisma domain schema on [prisma/schema.prisma](prisma/schema.prisma).
 - Seed data on [prisma/seed.ts](prisma/seed.ts).
@@ -88,6 +95,7 @@ Local social network with community moderation.
 - Geolocation permission is now requested automatically when the app connects, and viewer coordinates are refreshed continuously while permission remains active.
 - Viewer location is now persisted in IndexedDB and synchronized to URL coordinates so distance sorting updates with movement over time.
 - Geolocation concerns are split into dedicated components: permission policy watcher, periodic updater, IndexedDB persistence, and feed refresh synchronizer.
+- Geolocation browser-state parsing (sort preferences + location snapshot + distance-mode recovery) is now centralized in a single shared helper file to avoid copy/paste drift.
 - Geolocation now listens to browser permission-state changes and auto-retries location acquisition when access is granted after an initial deny/prompt flow.
 - New posts and thread replies no longer ask for manual latitude/longitude fields and instead automatically submit live viewer coordinates when location is active.
 - Post and reply creation now preserve the active navigation context (Popularity/Date/Distance + coordinates) across redirects so distance labels do not disappear after publishing.
@@ -102,8 +110,12 @@ Local social network with community moderation.
 
 ## Important Code Comments
 
-- [app/actions.ts](app/actions.ts): server-side mutation entry point that now returns canonical action state for fast client reconciliation.
-- [lib/simpl.ts](lib/simpl.ts): shared moderation policy evaluator, visibility filtering, and tri-state aggregate ranking helpers.
+- [app/actions.ts](app/actions.ts): server-side mutation entry point that returns canonical action state for fast client reconciliation. Navigation query building is delegated to lib/navigation.ts; moderation policy to lib/policy.ts.
+- [lib/simpl.ts](lib/simpl.ts): server-side Prisma queries, anonymous actor management, and sort-state resolution. Pure algorithms and types have been extracted to lib/sorting.ts, lib/policy.ts, lib/types.ts.
+- [lib/types.ts](lib/types.ts): canonical domain types shared across all server and client modules.
+- [lib/sorting.ts](lib/sorting.ts): pure tri-state ranking engine — individual comparators and aggregate normalized rank averaging.
+- [lib/policy.ts](lib/policy.ts): vote-threshold moderation policy — threshold constants and outcome evaluator.
+- [lib/navigation.ts](lib/navigation.ts): server-side URL navigation query sanitizer and composer for post/reply redirects.
 - [app/components/PostActionControls.tsx](app/components/PostActionControls.tsx): client-side action controls that update immediately and subscribe to backend acknowledgements from the browser queue.
 - [app/components/SortBar.tsx](app/components/SortBar.tsx): shared sort controls used by the feed, moderation queue, and thread replies.
 - [app/components/ThreadReplyComposer.tsx](app/components/ThreadReplyComposer.tsx): client-side toggle wrapper that keeps the thread reply form hidden until the user opens it.
@@ -113,10 +125,11 @@ Local social network with community moderation.
 - [app/components/geolocation/GeoPeriodicLocationUpdater.tsx](app/components/geolocation/GeoPeriodicLocationUpdater.tsx): polls geolocation periodically while permission remains granted.
 - [app/components/geolocation/GeoIndexedDbWriter.tsx](app/components/geolocation/GeoIndexedDbWriter.tsx): persists latest viewer position snapshots into IndexedDB.
 - [app/components/geolocation/GeoFeedRefresher.tsx](app/components/geolocation/GeoFeedRefresher.tsx): applies location updates to query params and forces SSR refresh.
+- [app/components/geolocation/browserState.ts](app/components/geolocation/browserState.ts): shared browser-state parsing helpers used by geolocation-aware client components.
 - [app/components/geolocation/locationIndexedDb.ts](app/components/geolocation/locationIndexedDb.ts): low-level IndexedDB read/write helpers for location state.
 - [app/components/postActionQueue.ts](app/components/postActionQueue.ts): browser-side queue that persists action clicks and flushes them in chronological order.
 - [app/components/PostComposer.tsx](app/components/PostComposer.tsx): create/reply composer that now injects hidden coordinates from live browser location snapshots.
-- [lib/simpl.ts](lib/simpl.ts): server-side query helpers and actor identity helpers.
+- [lib/simpl.ts](lib/simpl.ts): server-side query helpers and actor identity helpers. Re-exports types from lib/types.ts and evaluateModerationPolicy from lib/policy.ts for backward compatibility.
 - [prisma/schema.prisma](prisma/schema.prisma): PostgreSQL Simpl data model.
 - [lib/prisma.ts](lib/prisma.ts): shared Prisma client lifecycle.
 

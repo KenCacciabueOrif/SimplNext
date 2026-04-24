@@ -1,6 +1,6 @@
 /**
  * Last updated: 2026-04-24
- * Changes: Added a dedicated feed refresher that syncs URL query params from geolocation updates and forces server re-evaluation.
+ * Changes: Reused shared browser-state helpers for sort parsing and distance-mode recovery to remove duplicated logic.
  * Purpose: Keep SSR sort/location data aligned with client-side geolocation events.
  */
 
@@ -14,7 +14,12 @@ import {
   LOCATION_STORAGE_KEY,
   SORT_PREFERENCES_STORAGE_KEY,
 } from "@/app/components/geolocation/constants";
-import type { SortMode, SortPreferencesSnapshot, ViewerLocationSnapshot } from "@/app/components/geolocation/types";
+import {
+  ensureDistanceModeFromPreferences,
+  normalizeSortMode,
+  readSortPreferences,
+} from "@/app/components/geolocation/browserState";
+import type { SortPreferencesSnapshot, ViewerLocationSnapshot } from "@/app/components/geolocation/types";
 
 type GeoFeedRefresherProps = {
   request: {
@@ -22,37 +27,6 @@ type GeoFeedRefresherProps = {
     snapshot: ViewerLocationSnapshot;
   } | null;
 };
-
-function normalizeSortMode(value: string | null): SortMode | null {
-  if (value === "down" || value === "up" || value === "off") {
-    return value;
-  }
-
-  return null;
-}
-
-function readSortPreferences() {
-  const rawValue = localStorage.getItem(SORT_PREFERENCES_STORAGE_KEY);
-
-  if (!rawValue) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(rawValue) as Partial<SortPreferencesSnapshot>;
-    const popularity = normalizeSortMode(parsed.popularity ?? null);
-    const date = normalizeSortMode(parsed.date ?? null);
-    const distance = normalizeSortMode(parsed.distance ?? null);
-
-    if (!popularity || !date || !distance) {
-      return null;
-    }
-
-    return { popularity, date, distance } satisfies SortPreferencesSnapshot;
-  } catch {
-    return null;
-  }
-}
 
 function persistSortPreferencesFromParams(params: URLSearchParams) {
   const popularity = normalizeSortMode(params.get("popularity"));
@@ -88,15 +62,10 @@ export default function GeoFeedRefresher({ request }: GeoFeedRefresherProps) {
       params.set("geo", "on");
 
       const preferences = readSortPreferences();
-      const currentDistance = params.get("distance");
 
-      if (!currentDistance) {
-        params.set("distance", preferences?.distance ?? "down");
-      } else if (currentDistance === "off" && (preferences?.distance === "down" || preferences?.distance === "up")) {
-        // Recover from stale URLs carrying distance=off while browser state
-        // says geolocation is active and user preference is distance-on.
-        params.set("distance", preferences.distance);
-      }
+      // Recover from stale URLs carrying distance=off while browser state says
+      // geolocation is active and user preference is distance-on.
+      ensureDistanceModeFromPreferences(params, preferences);
 
       localStorage.setItem(LOCATION_ACTIVITY_STORAGE_KEY, "on");
     } else {

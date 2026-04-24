@@ -1,6 +1,6 @@
 /**
  * Last updated: 2026-04-24
- * Changes: Added IndexedDB bootstrap for geolocation snapshots so post/reply forms can recover location state on app load before runtime GPS events. Kept hidden navigation-context propagation and live GPS event handling.
+ * Changes: Reused shared geolocation browser-state parsers to remove duplicated snapshot and sort-mode normalization logic.
  * Purpose: Render the create form shared by the new post page and thread reply flow.
  */
 
@@ -10,6 +10,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { createPostAction } from "@/app/actions";
+import {
+  normalizeSortMode,
+  parseLocationSnapshot,
+} from "@/app/components/geolocation/browserState";
 import { LOCATION_EVENT_NAME, LOCATION_STORAGE_KEY } from "@/app/components/geolocation/constants";
 import { readLocationSnapshotFromIndexedDb } from "@/app/components/geolocation/locationIndexedDb";
 import type { ViewerLocationSnapshot } from "@/app/components/geolocation/types";
@@ -21,41 +25,6 @@ type PostComposerProps = {
   parentId?: string;
 };
 
-function parseLocationSnapshot(rawValue: string | null): ViewerLocationSnapshot | null {
-  if (!rawValue) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(rawValue) as Partial<ViewerLocationSnapshot>;
-
-    if (
-      typeof parsed.active !== "boolean" ||
-      typeof parsed.updatedAt !== "number" ||
-      (parsed.latitude !== null && typeof parsed.latitude !== "number") ||
-      (parsed.longitude !== null && typeof parsed.longitude !== "number")
-    ) {
-      return null;
-    }
-
-    return {
-      active: parsed.active,
-      latitude: parsed.latitude ?? null,
-      longitude: parsed.longitude ?? null,
-      updatedAt: parsed.updatedAt,
-    };
-  } catch {
-    return null;
-  }
-}
-
-function normalizeSortMode(value: string | null): "down" | "up" | "off" | null {
-  if (value === "down" || value === "up" || value === "off") {
-    return value;
-  }
-
-  return null;
-}
 export default function PostComposer({
   heading,
   submitLabel,

@@ -1,22 +1,21 @@
 /**
  * Last updated: 2026-04-24
- * Changes: Added tri-state multi-filter sorting with averaged normalized ranks across popularity/date/distance while preserving moderation policy helpers. Sort-state resolution now keeps Distance off by default without viewer coordinates and switches it to down once location is available and no explicit distance mode is provided.
- * Purpose: Centralize server-side data access and shared domain rules for the Simpl application.
+ * Changes: Modularized — pure types moved to lib/types.ts, sorting algorithms to lib/sorting.ts, moderation policy to lib/policy.ts. This file now owns only server-side queries, actor management, and request-level parsing. All exports remain stable for consumers.
+ * Purpose: Server-side data access (Prisma queries), anonymous actor management, and sort-state resolution for the Simpl application.
  */
 
 import { cookies } from "next/headers";
 import { ModerationDecision, PostStatus, ReactionType } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { sortPostsByAggregateRanks } from "@/lib/sorting";
+import { evaluateModerationPolicy } from "@/lib/policy";
+import type { FeedSortState, ModerationPolicyOutcome, PostListItem, SortMode, ViewerLocation } from "@/lib/types";
+
+// Re-export domain types so existing consumers keep working without import changes.
+export type { FeedSortState, ModerationPolicyOutcome, PostListItem, SortMode, ViewerLocation };
+export { evaluateModerationPolicy };
 
 const ACTOR_COOKIE = "simpl-actor-key";
-
-export type SortMode = "down" | "up" | "off";
-
-export type FeedSortState = {
-  popularity: SortMode;
-  date: SortMode;
-  distance: SortMode;
-};
 
 export const DEFAULT_FEED_SORT_STATE: FeedSortState = {
   popularity: "down",
@@ -24,42 +23,16 @@ export const DEFAULT_FEED_SORT_STATE: FeedSortState = {
   distance: "down",
 };
 
-export type ViewerLocation = {
-  latitude: number;
-  longitude: number;
-};
-
-export type ModerationPolicyOutcome = {
-  totalVotes: number;
-  shouldDelete: boolean;
-  inModeration: boolean;
-  visibleOnHomepage: boolean;
-  status: PostStatus;
-};
-
-export type PostListItem = {
-  id: string;
-  title: string;
-  body: string;
-  authorDisplayName: string;
-  parentId: string | null;
-  rootId: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  likeCount: number;
-  dislikeCount: number;
-  reportCount: number;
-  keepVoteCount: number;
-  removeVoteCount: number;
-  status: PostStatus;
-  createdAt: Date;
-  replyCount: number;
-  distanceKm: number | null;
-  viewerReaction: ReactionType | null;
-  viewerModerationDecision: ModerationDecision | null;
-};
+// ---------------------------------------------------------------------------
+// Internal query record type — matches the Prisma include shape used in all
+// post queries. Cast via `as unknown as PostQueryRecord[]` at query boundaries.
+// ---------------------------------------------------------------------------
 
 type PostQueryRecord = Parameters<typeof toPostListItem>[0];
+
+// ---------------------------------------------------------------------------
+// Distance math
+// ---------------------------------------------------------------------------
 
 function toRadians(value: number) {
   return (value * Math.PI) / 180;
@@ -87,155 +60,9 @@ function calculateDistanceKm(
   return 2 * earthRadiusKm * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
 }
 
-function compareCreatedAtDesc(left: PostListItem, right: PostListItem) {
-  if (left.createdAt.getTime() !== right.createdAt.getTime()) {
-    return right.createdAt.getTime() - left.createdAt.getTime();
-  }
-
-  return left.id.localeCompare(right.id);
-}
-
-function compareByPopularity(left: PostListItem, right: PostListItem, mode: Exclude<SortMode, "off">) {
-  const leftScore = left.likeCount - left.dislikeCount;
-  const rightScore = right.likeCount - right.dislikeCount;
-
-  if (leftScore !== rightScore) {
-    return mode === "down" ? rightScore - leftScore : leftScore - rightScore;
-  }
-
-  return compareCreatedAtDesc(left, right);
-}
-
-function compareByDate(left: PostListItem, right: PostListItem, mode: Exclude<SortMode, "off">) {
-  if (left.createdAt.getTime() !== right.createdAt.getTime()) {
-    return mode === "down"
-      ? right.createdAt.getTime() - left.createdAt.getTime()
-      : left.createdAt.getTime() - right.createdAt.getTime();
-  }
-
-  return left.id.localeCompare(right.id);
-}
-
-function compareByDistance(left: PostListItem, right: PostListItem, mode: Exclude<SortMode, "off">) {
-  if (left.distanceKm === null && right.distanceKm === null) {
-    return compareCreatedAtDesc(left, right);
-  }
-
-  if (left.distanceKm === null) {
-    return 1;
-  }
-
-  if (right.distanceKm === null) {
-    return -1;
-  }
-
-  if (left.distanceKm !== right.distanceKm) {
-    return mode === "down" ? left.distanceKm - right.distanceKm : right.distanceKm - left.distanceKm;
-  }
-
-  return compareCreatedAtDesc(left, right);
-}
-
-function buildNormalizedRankMap(
-  posts: PostListItem[],
-  comparator: (left: PostListItem, right: PostListItem) => number,
-) {
-  const sorted = [...posts].sort(comparator);
-  const rankMap = new Map<string, number>();
-  const denominator = sorted.length <= 1 ? 1 : sorted.length - 1;
-
-  sorted.forEach((post, index) => {
-    rankMap.set(post.id, index / denominator);
-  });
-
-  return rankMap;
-}
-
-function getActiveSortModes(sortState: FeedSortState) {
-  const activeModes: Array<"popularity" | "date" | "distance"> = [];
-
-  if (sortState.popularity !== "off") {
-    activeModes.push("popularity");
-  }
-
-  if (sortState.date !== "off") {
-    activeModes.push("date");
-  }
-
-  if (sortState.distance !== "off") {
-    activeModes.push("distance");
-  }
-
-  return activeModes;
-}
-
-function sortPostsByAggregateRanks(posts: PostListItem[], sortState: FeedSortState) {
-  const activeModes = getActiveSortModes(sortState);
-
-  if (activeModes.length === 0) {
-    return [...posts].sort(compareCreatedAtDesc);
-  }
-
-  const dateMode = sortState.date === "off" ? null : sortState.date;
-  const distanceMode = sortState.distance === "off" ? null : sortState.distance;
-  const popularityMode = sortState.popularity === "off" ? null : sortState.popularity;
-
-  const rankMaps = {
-    date:
-      dateMode === null
-        ? null
-        : buildNormalizedRankMap(posts, (left, right) => compareByDate(left, right, dateMode)),
-    distance:
-      distanceMode === null
-        ? null
-        : buildNormalizedRankMap(posts, (left, right) => compareByDistance(left, right, distanceMode)),
-    popularity:
-      popularityMode === null
-        ? null
-        : buildNormalizedRankMap(posts, (left, right) => compareByPopularity(left, right, popularityMode)),
-  };
-
-  const scoreByPost = new Map<string, number>();
-
-  posts.forEach((post) => {
-    let total = 0;
-
-    if (rankMaps.popularity) {
-      total += rankMaps.popularity.get(post.id) ?? 1;
-    }
-
-    if (rankMaps.date) {
-      total += rankMaps.date.get(post.id) ?? 1;
-    }
-
-    if (rankMaps.distance) {
-      total += rankMaps.distance.get(post.id) ?? 1;
-    }
-
-    scoreByPost.set(post.id, total / activeModes.length);
-  });
-
-  return [...posts].sort((left, right) => {
-    if (sortState.distance !== "off") {
-      if (left.distanceKm === null && right.distanceKm !== null) {
-        return 1;
-      }
-
-      if (left.distanceKm !== null && right.distanceKm === null) {
-        return -1;
-      }
-    }
-
-    const leftScore = scoreByPost.get(left.id) ?? 1;
-    const rightScore = scoreByPost.get(right.id) ?? 1;
-
-    if (leftScore !== rightScore) {
-      return leftScore - rightScore;
-    }
-
-    return compareCreatedAtDesc(left, right);
-  });
-}
+// ---------------------------------------------------------------------------
+// Internal post transformer
+// ---------------------------------------------------------------------------
 
 function toPostListItem(post: {
   id: string;
@@ -352,61 +179,6 @@ export function resolveFeedSortState(input: {
   }
 
   return sortState;
-}
-
-export function evaluateModerationPolicy(
-  keepVoteCount: number,
-  removeVoteCount: number,
-): ModerationPolicyOutcome {
-  const totalVotes = keepVoteCount + removeVoteCount;
-
-  if (totalVotes < 10) {
-    return {
-      inModeration: true,
-      shouldDelete: false,
-      status: PostStatus.UNDER_REVIEW,
-      totalVotes,
-      visibleOnHomepage: true,
-    };
-  }
-
-  if (removeVoteCount >= 2 * keepVoteCount) {
-    return {
-      inModeration: false,
-      shouldDelete: true,
-      status: PostStatus.REMOVED,
-      totalVotes,
-      visibleOnHomepage: false,
-    };
-  }
-
-  if (keepVoteCount >= 2 * removeVoteCount) {
-    return {
-      inModeration: false,
-      shouldDelete: false,
-      status: PostStatus.ACTIVE,
-      totalVotes,
-      visibleOnHomepage: true,
-    };
-  }
-
-  if (removeVoteCount > keepVoteCount) {
-    return {
-      inModeration: true,
-      shouldDelete: false,
-      status: PostStatus.HIDDEN,
-      totalVotes,
-      visibleOnHomepage: false,
-    };
-  }
-
-  return {
-    inModeration: true,
-    shouldDelete: false,
-    status: PostStatus.UNDER_REVIEW,
-    totalVotes,
-    visibleOnHomepage: true,
-  };
 }
 
 export async function getViewerActor() {
