@@ -1,12 +1,13 @@
 /**
- * Last updated: 2026-04-21
- * Changes: Reworked the shared shell to match the legacy Simpl UI structure with a centered title bar and simple tab navigation.
+ * Last updated: 2026-04-22
+ * Changes: Added a global geolocation manager bootstrap to request permissions and keep viewer location synchronized during app usage.
  * Purpose: Provide shared layout metadata and navigation for the Simpl application.
  */
 
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import AppTabs from "@/app/components/AppTabs";
+import GeoLocationManager from "@/app/components/GeoLocationManager";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -34,6 +35,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <GeoLocationManager />
         <div className="app-shell">
           <header className="title-bar">
             <h1>Simpl.</h1>

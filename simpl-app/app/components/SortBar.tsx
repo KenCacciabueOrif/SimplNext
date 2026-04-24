@@ -1,14 +1,19 @@
 "use client";
 
 /**
- * Last updated: 2026-04-22
- * Changes: Replaced single-sort controls with tri-state filter toggles (down/up/off) for popularity, date, and distance.
+ * Last updated: 2026-04-24
+ * Changes: Replaced single-sort controls with tri-state filter toggles (down/up/off), aligned distance feedback with global geolocation bootstrap behavior, restored click-time location fallback for immediate distance activation, and added explicit prompt-vs-denied GPS status messaging with user-triggered activation.
  * Purpose: Render the sort controls in the same structural slot as the original Simpl interface.
  */
 
-import { startTransition, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { FeedSortState, SortMode, ViewerLocation } from "@/lib/simpl";
+import {
+  PERMISSION_STATE_EVENT_NAME,
+  SORT_PREFERENCES_STORAGE_KEY,
+} from "@/app/components/geolocation/constants";
+import type { PermissionStateValue } from "@/app/components/geolocation/types";
 
 type SortBarProps = {
   pathname: string;
@@ -45,6 +50,58 @@ export default function SortBar({ pathname, sortState, viewerLocation }: SortBar
   const searchParams = useSearchParams();
   const [distanceError, setDistanceError] = useState<string | null>(null);
   const [isLocating, setIsLocating] = useState(false);
+  const [permissionState, setPermissionState] = useState<PermissionStateValue>("unknown");
+
+  useEffect(() => {
+    function handlePermissionStateUpdate(event: Event) {
+      const customEvent = event as CustomEvent<PermissionStateValue>;
+      setPermissionState(customEvent.detail ?? "unknown");
+    }
+
+    window.addEventListener(PERMISSION_STATE_EVENT_NAME, handlePermissionStateUpdate);
+
+    return () => {
+      window.removeEventListener(PERMISSION_STATE_EVENT_NAME, handlePermissionStateUpdate);
+    };
+  }, []);
+
+  function requestLocationFromUserAction() {
+    if (!("geolocation" in navigator)) {
+      setDistanceError("La géolocalisation n'est pas disponible dans ce navigateur.");
+      return;
+    }
+
+    setDistanceError(null);
+    setIsLocating(true);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setIsLocating(false);
+
+        const nextSortState: FeedSortState = {
+          ...sortState,
+          distance: sortState.distance === "off" ? "down" : sortState.distance,
+        };
+
+        navigateToSortState(nextSortState, position.coords.latitude, position.coords.longitude);
+      },
+      (error) => {
+        setIsLocating(false);
+
+        if (error.code === error.PERMISSION_DENIED) {
+          setDistanceError("Géolocalisation refusée. Active-la dans les paramètres du navigateur.");
+          return;
+        }
+
+        setDistanceError("Autorisation en attente ou position indisponible. Réessaie.");
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 10_000,
+        timeout: 12_000,
+      },
+    );
+  }
 
   function navigateToSortState(nextSortState: FeedSortState, latitude?: number, longitude?: number) {
     const nextParams = new URLSearchParams(searchParams.toString());
@@ -57,6 +114,8 @@ export default function SortBar({ pathname, sortState, viewerLocation }: SortBar
       nextParams.set("lat", latitude.toFixed(6));
       nextParams.set("lng", longitude.toFixed(6));
     }
+
+    localStorage.setItem(SORT_PREFERENCES_STORAGE_KEY, JSON.stringify(nextSortState));
 
     startTransition(() => {
       router.push(`${pathname}?${nextParams.toString()}`);
@@ -137,6 +196,19 @@ export default function SortBar({ pathname, sortState, viewerLocation }: SortBar
           {isLocating ? "Distance..." : `Distance ${getModeIndicator(sortState.distance)}`}
         </button>
       </div>
+
+      {permissionState !== "granted" && !viewerLocation ? (
+        <div className="sort-feedback" role="status" aria-live="polite">
+          <p>
+            {permissionState === "denied"
+              ? "Géolocalisation refusée. Tu peux relancer la demande après avoir ajusté les paramètres navigateur."
+              : "Géolocalisation non active. Demande l&apos;autorisation pour activer le tri par distance."}
+          </p>
+          <button type="button" className="button" onClick={requestLocationFromUserAction} disabled={isLocating}>
+            {isLocating ? "Demande GPS..." : "Activer la géolocalisation"}
+          </button>
+        </div>
+      ) : null}
 
       {distanceError ? <p className="sort-feedback">{distanceError}</p> : null}
     </>

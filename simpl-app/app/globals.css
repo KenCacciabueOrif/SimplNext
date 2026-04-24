@@ -1,6 +1,6 @@
 /*
  * Last updated: 2026-04-22
- * Changes: Added active/pending button feedback styles, restored the missing top border on the composer panel, styled the composer submit action, constrained the thread layout, and added a collapsible thread reply composer that starts hidden.
+ * Changes: Added active/pending button feedback styles, restored the missing top border on the composer panel, styled the composer submit action, constrained the thread layout, added a collapsible thread reply composer that starts hidden, and introduced composer location status feedback.
  * Purpose: Define the global visual system and adaptive behavior of the Simpl UI.
  */
 
@@ -407,6 +407,10 @@ select {
   font-size: 0.82rem;
   margin: 0;
   text-align: center;
+}
+
+.composer-location-status {
+  margin-top: 8px !important;
 }
 
 .field {

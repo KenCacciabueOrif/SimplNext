@@ -9,6 +9,7 @@ import { ModerationDecision, PostStatus } from "@prisma/client";
 import {
   castModerationVoteFormAction,
 } from "@/app/actions";
+import GeoAwareBackLink from "@/app/components/GeoAwareBackLink";
 import PostActionControls from "@/app/components/PostActionControls";
 import type { PostListItem } from "@/lib/simpl";
 
@@ -126,9 +127,9 @@ export default function PostCard({ post, threadId, mode, navigationQuery }: Post
 
         <div className="action-group action-group-right">
           {mode === "thread-main" ? (
-            <Link className="legacy-button legacy-link-button" href={backHref}>
+            <GeoAwareBackLink className="legacy-button legacy-link-button" fallbackHref={backHref}>
               Back
-            </Link>
+            </GeoAwareBackLink>
           ) : (
             <Link className="legacy-button legacy-link-button" href={postThreadHref}>
               Commentaires {post.replyCount}

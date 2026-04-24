@@ -1,6 +1,6 @@
 /**
- * Last updated: 2026-04-22
- * Changes: Returned canonical post action state from reaction/moderation actions, added moderation vote toggle-off parity, and implemented the vote-threshold moderation policy with hard delete outcomes.
+ * Last updated: 2026-04-24
+ * Changes: Preserved validated navigation query context (sort + geolocation params) across post/reply creation redirects, while keeping canonical post action state for reaction/moderation mutations. Redirect context now defaults distance mode to down when GPS coordinates are present and no explicit distance mode is submitted.
  * Purpose: Centralize write operations for the Simpl application.
  */
 
@@ -42,6 +42,81 @@ function parseOptionalFloat(value: FormDataEntryValue | null) {
 
   const parsed = Number.parseFloat(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseSortModeValue(value: string | null): "down" | "up" | "off" | null {
+  if (value === "down" || value === "up" || value === "off") {
+    return value;
+  }
+
+  return null;
+}
+
+function parseViewerCoordinate(value: string | null, min: number, max: number) {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed) || parsed < min || parsed > max) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function buildNavigationQuery(rawNavigationQuery: FormDataEntryValue | null) {
+  if (typeof rawNavigationQuery !== "string" || rawNavigationQuery.trim() === "") {
+    return "";
+  }
+
+  const input = new URLSearchParams(rawNavigationQuery);
+  const output = new URLSearchParams();
+
+  const popularity = parseSortModeValue(input.get("popularity"));
+  const date = parseSortModeValue(input.get("date"));
+  const distance = parseSortModeValue(input.get("distance"));
+
+  if (popularity) {
+    output.set("popularity", popularity);
+  }
+
+  if (date) {
+    output.set("date", date);
+  }
+
+  if (distance) {
+    output.set("distance", distance);
+  }
+
+  const latitude = parseViewerCoordinate(input.get("lat"), -90, 90);
+  const longitude = parseViewerCoordinate(input.get("lng"), -180, 180);
+
+  if (latitude !== null && longitude !== null) {
+    output.set("lat", latitude.toFixed(6));
+    output.set("lng", longitude.toFixed(6));
+
+    if (!distance) {
+      output.set("distance", "down");
+    }
+  }
+
+  const geo = input.get("geo");
+
+  if (geo === "on" || geo === "off") {
+    output.set("geo", geo);
+  }
+
+  return output.toString();
+}
+
+function withNavigationQuery(pathname: string, navigationQuery: string) {
+  if (!navigationQuery) {
+    return pathname;
+  }
+
+  return `${pathname}?${navigationQuery}`;
 }
 
 function getThreadId(formData: FormData, fallbackPostId: string) {
@@ -193,6 +268,7 @@ export async function createPostAction(formData: FormData) {
   const title = normalizeText(formData.get("title"));
   const body = normalizeText(formData.get("body"));
   const parentId = normalizeText(formData.get("parentId")) || null;
+  const navigationQuery = buildNavigationQuery(formData.get("navigationQuery"));
   const latitude = parseOptionalFloat(formData.get("latitude"));
   const longitude = parseOptionalFloat(formData.get("longitude"));
 
@@ -232,10 +308,10 @@ export async function createPostAction(formData: FormData) {
 
   if (parentId) {
     revalidatePath(`/posts/${parentId}`);
-    redirect(`/posts/${parentId}`);
+    redirect(withNavigationQuery(`/posts/${parentId}`, navigationQuery));
   }
 
-  redirect(`/posts/${created.id}`);
+  redirect(withNavigationQuery(`/posts/${created.id}`, navigationQuery));
 }
 
 export async function toggleReactionAction(

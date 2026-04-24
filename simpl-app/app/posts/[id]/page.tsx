@@ -5,7 +5,7 @@
  */
 
 import { notFound } from "next/navigation";
-import Link from "next/link";
+import GeoAwareBackLink from "@/app/components/GeoAwareBackLink";
 import PostCard from "@/app/components/PostCard";
 import SortBar from "@/app/components/SortBar";
 import ThreadReplyComposer from "@/app/components/ThreadReplyComposer";
@@ -65,9 +65,9 @@ export default async function PostPage({
   return (
     <div className="screen-stack thread-screen">
       <div className="thread-bar">
-        <Link href={backToParentHref} className="thread-bar-link">
+        <GeoAwareBackLink fallbackHref={backToParentHref} className="thread-bar-link">
           {post.parentId ? "Back to parent" : "Back to feed"}
-        </Link>
+        </GeoAwareBackLink>
         <span className="thread-bar-title">Commentaires</span>
       </div>
 

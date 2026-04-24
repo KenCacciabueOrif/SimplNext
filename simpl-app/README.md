@@ -1,3 +1,35 @@
+> Last updated: 2026-04-24
+> Changes: Added browser/Next cache-restore reconciliation hooks (`pageshow`, `visibilitychange`, `focus`, `popstate`) so geolocation permission and feed distance context are rechecked even when navigation restores a cached page state.
+> Last updated: 2026-04-24
+> Changes: Added explicit permission re-test on home page entry: if geolocation is already authorized, the app immediately reapplies GPS distance behavior (`distance=down` with coordinates). If not authorized, the distance mode remains `=` and the dedicated geolocation request button stays visible.
+> Last updated: 2026-04-24
+> Changes: Added route-change geolocation resynchronization in the global manager so returning from thread/comment pages reapplies the latest persisted location snapshot to URL and feed sorting, even without a fresh browser geolocation callback.
+> Last updated: 2026-04-24
+> Changes: Added explicit browser persistence for geolocation active/inactive state and used stored sort preferences to recover stale `distance=off` query values when returning from comment pages while geolocation is active.
+> Last updated: 2026-04-24
+> Changes: Added geo-aware back navigation links that restore active location context from browser state when returning from comment threads, preventing unintended fallback to `GPS off` on the home feed.
+> Last updated: 2026-04-24
+> Changes: Geolocation consent prompting is now passive on first load: the app no longer triggers browser permission dialogs automatically, and the consent request is initiated only when the user presses the dedicated activation button.
+> Last updated: 2026-04-24
+> Changes: Fixed initial distance sort default behavior so Distance now starts in `off` (`=`) when no viewer location is available, and switches to `down` automatically once geolocation is accepted and coordinates are present.
+> Last updated: 2026-04-24
+> Changes: Added strict geolocation state separation (`prompt` vs `denied`) in the sort UX, including an explicit user-triggered GPS activation control for pending permission state and a dedicated refusal guidance message.
+> Last updated: 2026-04-24
+> Changes: Restored first-visit geolocation consent prompting in the permission watcher when browser state is `prompt`, and added periodic permission-state reconciliation for browsers that do not reliably emit permission change events.
+> Last updated: 2026-04-24
+> Changes: Replaced the geolocation flow with a modular 4-component orchestration: permission watcher, periodic updater, IndexedDB writer, and feed refresher. App bootstrap now restores location from IndexedDB when permission is granted.
+> Last updated: 2026-04-24
+> Changes: Enforced automatic distance=down activation when GPS coordinates become available (while preserving explicit distance=off), and hardened post/comment creation navigation context serialization to prevent loss of GPS distance state after redirects.
+> Last updated: 2026-04-24
+> Changes: Added resilient geolocation URL synchronization using browser history replacement + route refresh, and persisted sort preferences in local storage so GPS auto-activation can restore the user distance mode even when URL parameters are initially missing.
+> Last updated: 2026-04-24
+> Changes: Fixed geolocation reactivation after delayed browser permission grant and preserved feed/thread sort + GPS query context through post/comment creation redirects.
+> Last updated: 2026-04-24
+> Changes: Geolocation sync now bootstraps from browser storage, requests an immediate one-shot location on load/route change, and refreshes URL coordinates on each meaningful position change.
+> Last updated: 2026-04-22
+> Changes: Fixed distance-filter activation after geolocation approval by adding click-time geolocation fallback and preventing transient watcher errors from disabling known location state.
+> Last updated: 2026-04-22
+> Changes: Added automatic geolocation bootstrap on app load, continuous location refresh while active, automatic coordinate injection for new posts/replies, and explicit inactive-location fallback handling.
 > Last updated: 2026-04-22
 > Changes: Implemented tri-state multi-filter sorting (Popularity/Date/Distance) with combined ranking by averaged normalized filter ranks across feed, thread replies, and moderation queue.
 > Last updated: 2026-04-22
@@ -26,6 +58,13 @@ Local social network with community moderation.
 - Server actions on [app/actions.ts](app/actions.ts).
 - Legacy-style top tabs on [app/components/AppTabs.tsx](app/components/AppTabs.tsx).
 - Legacy-style sort row on [app/components/SortBar.tsx](app/components/SortBar.tsx).
+- Geolocation orchestrator on [app/components/GeoLocationManager.tsx](app/components/GeoLocationManager.tsx).
+- Geo-aware back link helper on [app/components/GeoAwareBackLink.tsx](app/components/GeoAwareBackLink.tsx).
+- Geolocation permission watcher on [app/components/geolocation/GeoPermissionWatcher.tsx](app/components/geolocation/GeoPermissionWatcher.tsx).
+- Geolocation periodic updater on [app/components/geolocation/GeoPeriodicLocationUpdater.tsx](app/components/geolocation/GeoPeriodicLocationUpdater.tsx).
+- Geolocation IndexedDB writer on [app/components/geolocation/GeoIndexedDbWriter.tsx](app/components/geolocation/GeoIndexedDbWriter.tsx).
+- Geolocation feed refresher on [app/components/geolocation/GeoFeedRefresher.tsx](app/components/geolocation/GeoFeedRefresher.tsx).
+- Geolocation IndexedDB helpers on [app/components/geolocation/locationIndexedDb.ts](app/components/geolocation/locationIndexedDb.ts).
 - Local-first Like/DisLike/Good/Bad controls on [app/components/PostActionControls.tsx](app/components/PostActionControls.tsx).
 - Browser-persisted chronological action queue on [app/components/postActionQueue.ts](app/components/postActionQueue.ts).
 - Shared post queries and anonymous actor helpers on [lib/simpl.ts](lib/simpl.ts).
@@ -46,6 +85,13 @@ Local social network with community moderation.
 - Feed, thread replies, and moderation queue now use tri-state filters for Popularity/Date/Distance (down, up, off) that can run simultaneously.
 - Combined ordering is computed as the average of normalized per-filter ranks, with equal weights and stable tie-breakers.
 - When Distance is active, posts without coordinates are always placed at the end of the list.
+- Geolocation permission is now requested automatically when the app connects, and viewer coordinates are refreshed continuously while permission remains active.
+- Viewer location is now persisted in IndexedDB and synchronized to URL coordinates so distance sorting updates with movement over time.
+- Geolocation concerns are split into dedicated components: permission policy watcher, periodic updater, IndexedDB persistence, and feed refresh synchronizer.
+- Geolocation now listens to browser permission-state changes and auto-retries location acquisition when access is granted after an initial deny/prompt flow.
+- New posts and thread replies no longer ask for manual latitude/longitude fields and instead automatically submit live viewer coordinates when location is active.
+- Post and reply creation now preserve the active navigation context (Popularity/Date/Distance + coordinates) across redirects so distance labels do not disappear after publishing.
+- If geolocation is disabled, denied, or unavailable, coordinates are omitted by default and distance sorting gracefully falls back to non-distance ordering.
 - The main thread post still scrolls with replies in the same pane.
 - Reported comments are removed from normal thread reply lists and remain accessible from moderation, where opening a comment still provides Back to parent context navigation.
 - The thread reply composer now starts collapsed and can be toggled open without shrinking the replies viewport by default.
@@ -61,7 +107,15 @@ Local social network with community moderation.
 - [app/components/PostActionControls.tsx](app/components/PostActionControls.tsx): client-side action controls that update immediately and subscribe to backend acknowledgements from the browser queue.
 - [app/components/SortBar.tsx](app/components/SortBar.tsx): shared sort controls used by the feed, moderation queue, and thread replies.
 - [app/components/ThreadReplyComposer.tsx](app/components/ThreadReplyComposer.tsx): client-side toggle wrapper that keeps the thread reply form hidden until the user opens it.
+- [app/components/GeoLocationManager.tsx](app/components/GeoLocationManager.tsx): global client bootstrap for geolocation permissions, live watcher updates, and URL/storage synchronization.
+- [app/components/GeoAwareBackLink.tsx](app/components/GeoAwareBackLink.tsx): client-side back link that restores missing geolocation params from browser state.
+- [app/components/geolocation/GeoPermissionWatcher.tsx](app/components/geolocation/GeoPermissionWatcher.tsx): listens to browser permission-policy transitions and emits granted/prompt/denied updates.
+- [app/components/geolocation/GeoPeriodicLocationUpdater.tsx](app/components/geolocation/GeoPeriodicLocationUpdater.tsx): polls geolocation periodically while permission remains granted.
+- [app/components/geolocation/GeoIndexedDbWriter.tsx](app/components/geolocation/GeoIndexedDbWriter.tsx): persists latest viewer position snapshots into IndexedDB.
+- [app/components/geolocation/GeoFeedRefresher.tsx](app/components/geolocation/GeoFeedRefresher.tsx): applies location updates to query params and forces SSR refresh.
+- [app/components/geolocation/locationIndexedDb.ts](app/components/geolocation/locationIndexedDb.ts): low-level IndexedDB read/write helpers for location state.
 - [app/components/postActionQueue.ts](app/components/postActionQueue.ts): browser-side queue that persists action clicks and flushes them in chronological order.
+- [app/components/PostComposer.tsx](app/components/PostComposer.tsx): create/reply composer that now injects hidden coordinates from live browser location snapshots.
 - [lib/simpl.ts](lib/simpl.ts): server-side query helpers and actor identity helpers.
 - [prisma/schema.prisma](prisma/schema.prisma): PostgreSQL Simpl data model.
 - [lib/prisma.ts](lib/prisma.ts): shared Prisma client lifecycle.

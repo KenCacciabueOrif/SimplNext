@@ -1,10 +1,18 @@
 /**
- * Last updated: 2026-04-21
- * Changes: Reworked the composer markup so the form reads like the original Simpl creation panel.
+ * Last updated: 2026-04-24
+ * Changes: Added IndexedDB bootstrap for geolocation snapshots so post/reply forms can recover location state on app load before runtime GPS events. Kept hidden navigation-context propagation and live GPS event handling.
  * Purpose: Render the create form shared by the new post page and thread reply flow.
  */
 
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+
 import { createPostAction } from "@/app/actions";
+import { LOCATION_EVENT_NAME, LOCATION_STORAGE_KEY } from "@/app/components/geolocation/constants";
+import { readLocationSnapshotFromIndexedDb } from "@/app/components/geolocation/locationIndexedDb";
+import type { ViewerLocationSnapshot } from "@/app/components/geolocation/types";
 
 type PostComposerProps = {
   heading: string;
@@ -13,21 +21,159 @@ type PostComposerProps = {
   parentId?: string;
 };
 
+function parseLocationSnapshot(rawValue: string | null): ViewerLocationSnapshot | null {
+  if (!rawValue) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(rawValue) as Partial<ViewerLocationSnapshot>;
+
+    if (
+      typeof parsed.active !== "boolean" ||
+      typeof parsed.updatedAt !== "number" ||
+      (parsed.latitude !== null && typeof parsed.latitude !== "number") ||
+      (parsed.longitude !== null && typeof parsed.longitude !== "number")
+    ) {
+      return null;
+    }
+
+    return {
+      active: parsed.active,
+      latitude: parsed.latitude ?? null,
+      longitude: parsed.longitude ?? null,
+      updatedAt: parsed.updatedAt,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function normalizeSortMode(value: string | null): "down" | "up" | "off" | null {
+  if (value === "down" || value === "up" || value === "off") {
+    return value;
+  }
+
+  return null;
+}
 export default function PostComposer({
   heading,
   submitLabel,
   description,
   parentId,
 }: PostComposerProps) {
+  const searchParams = useSearchParams();
+  const [locationSnapshot, setLocationSnapshot] = useState<ViewerLocationSnapshot | null>(null);
+
+  useEffect(() => {
+    const fromStorage = parseLocationSnapshot(localStorage.getItem(LOCATION_STORAGE_KEY));
+
+    if (fromStorage) {
+      setLocationSnapshot(fromStorage);
+    }
+
+    void readLocationSnapshotFromIndexedDb()
+      .then((fromIndexedDb) => {
+        if (fromIndexedDb) {
+          setLocationSnapshot(fromIndexedDb);
+        }
+      })
+      .catch(() => {
+        // Keep localStorage/event fallback when IndexedDB is unavailable.
+      });
+
+    function handleLocationUpdate(event: Event) {
+      const customEvent = event as CustomEvent<ViewerLocationSnapshot>;
+      setLocationSnapshot(customEvent.detail ?? null);
+    }
+
+    window.addEventListener(LOCATION_EVENT_NAME, handleLocationUpdate);
+
+    return () => {
+      window.removeEventListener(LOCATION_EVENT_NAME, handleLocationUpdate);
+    };
+  }, []);
+
+  const latitudeValue = useMemo(() => {
+    if (!locationSnapshot?.active || locationSnapshot.latitude === null) {
+      return "";
+    }
+
+    return locationSnapshot.latitude.toFixed(6);
+  }, [locationSnapshot]);
+
+  const longitudeValue = useMemo(() => {
+    if (!locationSnapshot?.active || locationSnapshot.longitude === null) {
+      return "";
+    }
+
+    return locationSnapshot.longitude.toFixed(6);
+  }, [locationSnapshot]);
+
+  const navigationQueryValue = useMemo(() => {
+    const merged = new URLSearchParams(searchParams.toString());
+
+    const popularity = normalizeSortMode(merged.get("popularity"));
+    const date = normalizeSortMode(merged.get("date"));
+    const distance = normalizeSortMode(merged.get("distance"));
+
+    if (popularity) {
+      merged.set("popularity", popularity);
+    } else {
+      merged.delete("popularity");
+    }
+
+    if (date) {
+      merged.set("date", date);
+    } else {
+      merged.delete("date");
+    }
+
+    if (locationSnapshot?.active && locationSnapshot.latitude !== null && locationSnapshot.longitude !== null) {
+      merged.set("lat", locationSnapshot.latitude.toFixed(6));
+      merged.set("lng", locationSnapshot.longitude.toFixed(6));
+      merged.set("geo", "on");
+
+      if (!distance) {
+        merged.set("distance", "down");
+      }
+    } else {
+      merged.delete("lat");
+      merged.delete("lng");
+
+      if (merged.get("geo") !== "on") {
+        merged.set("geo", "off");
+      }
+    }
+
+    const normalizedDistance = normalizeSortMode(merged.get("distance"));
+
+    if (normalizedDistance) {
+      merged.set("distance", normalizedDistance);
+    } else {
+      merged.delete("distance");
+    }
+
+    return merged.toString();
+  }, [locationSnapshot, searchParams]);
+
   return (
     <section className="composer-card">
       <div className="panel-title">
         <h2>{heading}</h2>
         <p>{description}</p>
+        <p className="composer-location-status">
+          {locationSnapshot?.active && latitudeValue && longitudeValue
+            ? `Position active: ${latitudeValue}, ${longitudeValue}`
+            : "Position inactive: le post/commentaire sera enregistré sans coordonnées."}
+        </p>
       </div>
 
       <form action={createPostAction}>
         {parentId ? <input type="hidden" name="parentId" value={parentId} /> : null}
+        <input type="hidden" name="navigationQuery" value={navigationQueryValue} />
+        <input type="hidden" name="latitude" value={latitudeValue} />
+        <input type="hidden" name="longitude" value={longitudeValue} />
 
         <label className="field">
           <span>Titre</span>
@@ -42,18 +188,6 @@ export default function PostComposer({
             required
           />
         </label>
-
-        <div className="field-grid">
-          <label className="field">
-            <span>Latitude</span>
-            <input name="latitude" placeholder="46.5197" step="any" type="number" />
-          </label>
-
-          <label className="field">
-            <span>Longitude</span>
-            <input name="longitude" placeholder="6.6323" step="any" type="number" />
-          </label>
-        </div>
 
         <div className="button-row">
           <button className="button" type="submit">

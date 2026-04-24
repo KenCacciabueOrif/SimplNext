@@ -1,6 +1,6 @@
 /**
- * Last updated: 2026-04-22
- * Changes: Added tri-state multi-filter sorting with averaged normalized ranks across popularity/date/distance while preserving moderation policy helpers.
+ * Last updated: 2026-04-24
+ * Changes: Added tri-state multi-filter sorting with averaged normalized ranks across popularity/date/distance while preserving moderation policy helpers. Sort-state resolution now keeps Distance off by default without viewer coordinates and switches it to down once location is available and no explicit distance mode is provided.
  * Purpose: Centralize server-side data access and shared domain rules for the Simpl application.
  */
 
@@ -330,8 +330,11 @@ export function resolveFeedSortState(input: {
       sortState.date = "off";
       sortState.distance = "down";
     } else if (!input.sort) {
-      // First load with no params at all: apply the full default (all down).
-      return { ...DEFAULT_FEED_SORT_STATE };
+      // First load with no params at all: apply defaults, then reconcile with
+      // viewer location availability below.
+      sortState.popularity = DEFAULT_FEED_SORT_STATE.popularity;
+      sortState.date = DEFAULT_FEED_SORT_STATE.date;
+      sortState.distance = DEFAULT_FEED_SORT_STATE.distance;
     } else {
       sortState.popularity = "off";
       sortState.date = "down";
@@ -342,6 +345,10 @@ export function resolveFeedSortState(input: {
   // Distance requires a known viewer location; drop it silently if unavailable.
   if (!viewerLocation) {
     sortState.distance = "off";
+  } else if (!input.distance && sortState.distance === "off") {
+    // Keep explicit distance=off, but when the parameter is absent and GPS is
+    // available, apply the default distance mode automatically.
+    sortState.distance = DEFAULT_FEED_SORT_STATE.distance;
   }
 
   return sortState;
