@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 /**
  * Last updated: 2026-04-27
  * Purpose: Verify ergonomics conformance of ThreadReplyComposer.
@@ -14,11 +14,11 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 
-vi.mock("@/app/components/PostComposer", () => ({
+vi.mock("@/app/components/composer/PostComposer", () => ({
   default: () => <div data-testid="mock-composer">composer</div>,
 }));
 
-import ThreadReplyComposer from "@/app/components/ThreadReplyComposer";
+import ThreadReplyComposer from "@/app/components/composer/ThreadReplyComposer";
 
 describe("ThreadReplyComposer", () => {
   it("toggle button starts with aria-expanded=false", () => {
@@ -61,3 +61,4 @@ describe("ThreadReplyComposer", () => {
     expect(document.getElementById("thread-reply-composer-panel")).toBeInTheDocument();
   });
 });
+

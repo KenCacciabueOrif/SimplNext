@@ -1,12 +1,12 @@
-/**
+﻿/**
  * Last updated: 2026-04-22
  * Changes: Switched feed sorting to tri-state multi-filter controls and persisted each filter mode in navigation params.
  * Purpose: Render the main feed for root posts.
  */
 
 import Link from "next/link";
-import PostCard from "@/app/components/PostCard";
-import SortBar from "@/app/components/SortBar";
+import PostCard from "@/app/components/post/PostCard";
+import SortBar from "@/app/components/sort/SortBar";
 import { buildNavigationQueryFromState } from "@/lib/navigation";
 import {
   getFeedPosts,

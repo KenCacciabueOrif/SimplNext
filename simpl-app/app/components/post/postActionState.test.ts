@@ -1,11 +1,11 @@
-import { ModerationDecision, PostStatus, ReactionType } from "@prisma/client";
+﻿import { ModerationDecision, PostStatus, ReactionType } from "@prisma/client";
 import { describe, expect, it } from "vitest";
 import {
   applyModerationLocally,
   applyReactionLocally,
   mergeServerState,
-} from "@/app/components/postActionState";
-import type { OptimisticPostState } from "@/app/components/postActionState";
+} from "@/app/components/post/postActionState";
+import type { OptimisticPostState } from "@/app/components/post/postActionState";
 
 // ---------------------------------------------------------------------------
 // Test fixture helpers
@@ -191,3 +191,4 @@ describe("mergeServerState", () => {
     expect(state.likeCount).toBe(99);
   });
 });
+

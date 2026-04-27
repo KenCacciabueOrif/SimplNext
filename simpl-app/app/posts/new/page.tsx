@@ -1,11 +1,11 @@
-/**
+﻿/**
  * Last updated: 2026-04-24
  * Changes: Preserved active feed sort and geolocation query context in the back navigation link, while keeping automatic coordinate capture guidance.
  * Purpose: Render the top-level post creation page.
  */
 
 import Link from "next/link";
-import PostComposer from "@/app/components/PostComposer";
+import PostComposer from "@/app/components/composer/PostComposer";
 import { parseSortModeValue } from "@/lib/navigation";
 
 export default async function NewPostPage({

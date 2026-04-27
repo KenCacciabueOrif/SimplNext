@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Last updated: 2026-04-27
  * Changes: Extracted pure optimistic-state helpers to postActionState.ts; component now focuses solely on React/UI concerns.
  * Purpose: Handle Like/DisLike/Good/Bad interactions with immediate UI feedback while server actions complete.
@@ -13,14 +13,14 @@ import {
   applyReactionLocally,
   mergeServerState,
   type OptimisticPostState,
-} from "@/app/components/postActionState";
+} from "@/app/components/post/postActionState";
 import {
   enqueueModerationVote,
   enqueueReaction,
   getQueuedPostActions,
   startPostActionQueue,
   subscribeToPostActionQueue,
-} from "@/app/components/postActionQueue";
+} from "@/app/components/post/postActionQueue";
 
 // ---------------------------------------------------------------------------
 // Component types
@@ -139,3 +139,4 @@ export default function PostActionControls({
     </>
   );
 }
+

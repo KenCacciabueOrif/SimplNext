@@ -1,6 +1,6 @@
-/**
+﻿/**
  * Last updated: 2026-04-27
- * Purpose: Tests for postActionQueue — the browser-persisted chronological queue
+ * Purpose: Tests for postActionQueue â€” the browser-persisted chronological queue
  *          that stores post reactions/moderation votes locally and replays them to
  *          the backend asynchronously. These tests cover enqueue, flush,
  *          subscriber notification, offline guard, and failure recovery.
@@ -12,7 +12,7 @@ import type { PostActionState } from "@/lib/types";
 import { installMockLocalStorage } from "@/app/components/geolocation/__tests__/testHelpers";
 
 // ---------------------------------------------------------------------------
-// Mock server actions — vi.mock is hoisted before all imports so postActionQueue
+// Mock server actions â€” vi.mock is hoisted before all imports so postActionQueue
 // receives the stubs when it first resolves its @/app/actions dependency.
 // ---------------------------------------------------------------------------
 
@@ -27,7 +27,7 @@ import {
   enqueueModerationVote,
   getQueuedPostActions,
   subscribeToPostActionQueue,
-} from "@/app/components/postActionQueue";
+} from "@/app/components/post/postActionQueue";
 import { toggleReactionAction, castModerationVoteAction } from "@/app/actions";
 
 // ---------------------------------------------------------------------------
@@ -58,7 +58,7 @@ function flushAsync() {
 }
 
 // ---------------------------------------------------------------------------
-// Environment setup — make canUseBrowser() return true and install localStorage
+// Environment setup â€” make canUseBrowser() return true and install localStorage
 // ---------------------------------------------------------------------------
 
 beforeAll(() => {
@@ -317,3 +317,4 @@ describe("chronological ordering", () => {
     Date.now = realDateNow;
   });
 });
+

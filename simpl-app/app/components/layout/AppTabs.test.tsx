@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 /**
  * Last updated: 2026-04-27
  * Purpose: Verify ergonomics conformance of AppTabs navigation.
@@ -16,7 +16,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ---------------------------------------------------------------------------
-// Module mocks — must be declared before any import of the component.
+// Module mocks â€” must be declared before any import of the component.
 // ---------------------------------------------------------------------------
 
 vi.mock("next/navigation", () => ({
@@ -37,7 +37,7 @@ vi.mock("@/app/components/geolocation/tabNavigation", () => ({
 }));
 
 import { usePathname } from "next/navigation";
-import AppTabs from "@/app/components/AppTabs";
+import AppTabs from "@/app/components/layout/AppTabs";
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -85,3 +85,4 @@ describe("AppTabs", () => {
     });
   });
 });
+

@@ -5,10 +5,10 @@
  */
 
 import { notFound } from "next/navigation";
-import GeoAwareBackLink from "@/app/components/GeoAwareBackLink";
-import PostCard from "@/app/components/PostCard";
-import SortBar from "@/app/components/SortBar";
-import ThreadReplyComposer from "@/app/components/ThreadReplyComposer";
+import GeoAwareBackLink from "@/app/components/layout/GeoAwareBackLink";
+import PostCard from "@/app/components/post/PostCard";
+import SortBar from "@/app/components/sort/SortBar";
+import ThreadReplyComposer from "@/app/components/composer/ThreadReplyComposer";
 import { buildNavigationQueryFromState } from "@/lib/navigation";
 import {
   getThreadPageData,

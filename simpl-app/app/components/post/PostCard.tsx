@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Last updated: 2026-04-22
  * Changes: Replaced Like/DisLike/Good/Bad form submits with optimistic client controls and restored Report availability on the main thread post.
  * Purpose: Present Simpl posts with their metadata, counters, and available actions.
@@ -9,8 +9,8 @@ import { ModerationDecision, PostStatus } from "@prisma/client";
 import {
   castModerationVoteFormAction,
 } from "@/app/actions";
-import GeoAwareBackLink from "@/app/components/GeoAwareBackLink";
-import PostActionControls from "@/app/components/PostActionControls";
+import GeoAwareBackLink from "@/app/components/layout/GeoAwareBackLink";
+import PostActionControls from "@/app/components/post/PostActionControls";
 import type { PostListItem } from "@/lib/simpl";
 
 type PostCardMode = "feed" | "thread" | "thread-main" | "moderation";

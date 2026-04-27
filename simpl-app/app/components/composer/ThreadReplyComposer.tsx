@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Last updated: 2026-04-22
  * Changes: Added a collapsible thread reply composer that starts hidden and now documents automatic coordinate capture for replies.
  * Purpose: Keep the reply form accessible on thread pages while preserving maximum space for comment scrolling.
@@ -7,7 +7,7 @@
 "use client";
 
 import { useState } from "react";
-import PostComposer from "@/app/components/PostComposer";
+import PostComposer from "@/app/components/composer/PostComposer";
 
 type ThreadReplyComposerProps = {
   parentId: string;
@@ -41,3 +41,4 @@ export default function ThreadReplyComposer({ parentId }: ThreadReplyComposerPro
     </div>
   );
 }
+

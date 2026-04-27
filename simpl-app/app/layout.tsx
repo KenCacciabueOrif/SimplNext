@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Last updated: 2026-04-27
  * Changes: Wrapped AppTabs in Suspense because tabs now read search params to preserve geolocation context in Home navigation.
  * Purpose: Provide shared layout metadata and navigation for the Simpl application.
@@ -7,8 +7,8 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
-import AppTabs from "@/app/components/AppTabs";
-import GeoLocationManager from "@/app/components/GeoLocationManager";
+import AppTabs from "@/app/components/layout/AppTabs";
+import GeoLocationManager from "@/app/components/geolocation/GeoLocationManager";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -52,3 +52,4 @@ export default function RootLayout({
     </html>
   );
 }
+

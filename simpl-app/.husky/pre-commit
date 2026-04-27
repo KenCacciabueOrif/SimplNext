@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+
+# Last updated: 2026-04-27
+# Changes: Replaced generic test-only hook with strict staged quality gates.
+# Purpose: Block commits that violate file-length policy, lint rules, or related tests.
+
+set -e
+
+# Run all checks from the app package root.
+cd simpl-app
+
+# 1) Prevent new oversized source files.
+npm run check:file-length
+# 2) Lint only staged files for fast feedback.
+npx lint-staged
+# 3) Run related tests for staged source changes.
+npm run test:related-staged

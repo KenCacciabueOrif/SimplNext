@@ -1,49 +1,27 @@
 /**
- * Last updated: 2026-04-22
- * Changes: Added a browser-persisted chronological queue for post actions so UI feedback can be instant while backend sync happens later.
+ * Last updated: 2026-04-27
+ * Changes: Extracted type declarations and isQueuedPostAction validator into postActionQueueTypes.ts.
  * Purpose: Store Like/DisLike/Good/Bad clicks locally, replay them in order, and notify clients when the backend confirms them.
  */
 
 "use client";
 
-import { ModerationDecision, ReactionType } from "@prisma/client";
+import type { ModerationDecision, ReactionType } from "@prisma/client";
 import {
   castModerationVoteAction,
   toggleReactionAction,
-  type PostActionState,
 } from "@/app/actions";
+import {
+  isQueuedPostAction,
+  type QueuedPostAction,
+  type QueueListener,
+  type QueueSnapshot,
+} from "@/app/components/post/postActionQueueTypes";
+import type { PostActionState } from "@/lib/types";
+
+export type { QueuedPostAction, QueueListener, QueueSnapshot } from "@/app/components/post/postActionQueueTypes";
 
 const STORAGE_KEY = "simpl-post-action-queue-v1";
-
-type ReactionQueueItem = {
-  id: string;
-  createdAt: number;
-  postId: string;
-  threadId: string;
-  kind: "reaction";
-  reactionType: ReactionType;
-};
-
-type ModerationQueueItem = {
-  id: string;
-  createdAt: number;
-  postId: string;
-  threadId: string;
-  kind: "moderation";
-  decision: ModerationDecision;
-};
-
-export type QueuedPostAction = ReactionQueueItem | ModerationQueueItem;
-
-type QueueSnapshot = {
-  queue: QueuedPostAction[];
-  acknowledged?: {
-    item: QueuedPostAction;
-    state: PostActionState;
-  };
-};
-
-type QueueListener = (snapshot: QueueSnapshot) => void;
 
 const listeners = new Set<QueueListener>();
 
@@ -52,34 +30,6 @@ let browserListenersRegistered = false;
 
 function canUseBrowser() {
   return typeof window !== "undefined";
-}
-
-function isQueuedPostAction(value: unknown): value is QueuedPostAction {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const candidate = value as Partial<QueuedPostAction>;
-
-  if (
-    typeof candidate.id !== "string" ||
-    typeof candidate.createdAt !== "number" ||
-    typeof candidate.postId !== "string" ||
-    typeof candidate.threadId !== "string" ||
-    typeof candidate.kind !== "string"
-  ) {
-    return false;
-  }
-
-  if (candidate.kind === "reaction") {
-    return candidate.reactionType === ReactionType.LIKE || candidate.reactionType === ReactionType.DISLIKE;
-  }
-
-  if (candidate.kind === "moderation") {
-    return candidate.decision === ModerationDecision.KEEP || candidate.decision === ModerationDecision.REMOVE;
-  }
-
-  return false;
 }
 
 function readQueue(): QueuedPostAction[] {

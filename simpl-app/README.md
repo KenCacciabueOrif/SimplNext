@@ -1,3 +1,7 @@
+﻿> Last updated: 2026-04-27
+> Changes: Phase 1 — reorganized `app/components` by domain (`layout`, `post`, `composer`, `sort`, `geolocation`) and updated imports/tests references accordingly.
+> Last updated: 2026-04-27
+> Changes: Started global-cleanup implementation phase 0 with enforceable quality gates: Husky pre-commit checks, lint-staged, staged related Vitest execution, CI PR workflow, and a 200-line file-length guard with temporary baseline exceptions.
 > Last updated: 2026-04-27
 > Changes: Deferred list reordering after Like/DisLike and Good/Bad: clicked cards still update instantly, but feed/thread/moderation ordering now refreshes only after explicit reload or sort navigation.
 > Last updated: 2026-04-27
@@ -65,15 +69,15 @@ Local social network with community moderation.
 
 - Main feed on [app/page.tsx](app/page.tsx).
 - Thread page on [app/posts/[id]/page.tsx](app/posts/%5Bid%5D/page.tsx).
-- Thread page sort controls on [app/components/SortBar.tsx](app/components/SortBar.tsx).
-- Collapsible thread reply composer on [app/components/ThreadReplyComposer.tsx](app/components/ThreadReplyComposer.tsx).
+- Thread page sort controls on [app/components/sort/SortBar.tsx](app/components/sort/SortBar.tsx).
+- Collapsible thread reply composer on [app/components/composer/ThreadReplyComposer.tsx](app/components/composer/ThreadReplyComposer.tsx).
 - Post creation page on [app/posts/new/page.tsx](app/posts/new/page.tsx).
 - Moderation queue on [app/moderation/page.tsx](app/moderation/page.tsx).
 - Server actions on [app/actions.ts](app/actions.ts).
-- Legacy-style top tabs on [app/components/AppTabs.tsx](app/components/AppTabs.tsx).
-- Legacy-style sort row on [app/components/SortBar.tsx](app/components/SortBar.tsx).
-- Geolocation orchestrator on [app/components/GeoLocationManager.tsx](app/components/GeoLocationManager.tsx).
-- Geo-aware back link helper on [app/components/GeoAwareBackLink.tsx](app/components/GeoAwareBackLink.tsx).
+- Legacy-style top tabs on [app/components/layout/AppTabs.tsx](app/components/layout/AppTabs.tsx).
+- Legacy-style sort row on [app/components/sort/SortBar.tsx](app/components/sort/SortBar.tsx).
+- Geolocation orchestrator on [app/components/geolocation/GeoLocationManager.tsx](app/components/geolocation/GeoLocationManager.tsx).
+- Geo-aware back link helper on [app/components/layout/GeoAwareBackLink.tsx](app/components/layout/GeoAwareBackLink.tsx).
 - Geolocation permission watcher on [app/components/geolocation/GeoPermissionWatcher.tsx](app/components/geolocation/GeoPermissionWatcher.tsx).
 - Geolocation periodic updater on [app/components/geolocation/GeoPeriodicLocationUpdater.tsx](app/components/geolocation/GeoPeriodicLocationUpdater.tsx).
 - Geolocation IndexedDB writer on [app/components/geolocation/GeoIndexedDbWriter.tsx](app/components/geolocation/GeoIndexedDbWriter.tsx).
@@ -87,8 +91,8 @@ Local social network with community moderation.
 - Root error boundary on [app/error.tsx](app/error.tsx).
 - Geolocation + sort hook on [app/components/geolocation/useGeoSort.ts](app/components/geolocation/useGeoSort.ts).
 - Haversine distance math on [lib/geo.ts](lib/geo.ts).
-- Local-first Like/DisLike/Good/Bad controls on [app/components/PostActionControls.tsx](app/components/PostActionControls.tsx).
-- Pure optimistic-state helpers for post actions on [app/components/postActionState.ts](app/components/postActionState.ts).
+- Local-first Like/DisLike/Good/Bad controls on [app/components/post/PostActionControls.tsx](app/components/post/PostActionControls.tsx).
+- Pure optimistic-state helpers for post actions on [app/components/post/postActionState.ts](app/components/post/postActionState.ts).
 - Shared post queries and anonymous actor helpers on [lib/simpl.ts](lib/simpl.ts).
 - Domain types (SortMode, FeedSortState, ViewerLocation, ModerationPolicyOutcome, PostListItem) on [lib/types.ts](lib/types.ts).
 - Pure tri-state sorting algorithms and aggregate rank engine on [lib/sorting.ts](lib/sorting.ts).
@@ -131,6 +135,8 @@ Local social network with community moderation.
 - The visual shell now follows the original Simpl prototype much more closely: centered title bar, Home/Moderation tabs, sort row, stacked post cards, and black/white borders.
 - The layout now adapts more cleanly to narrow, medium, and wide windows while keeping the same legacy visual language.
 - The `Distance` sort now uses browser geolocation and real post coordinates instead of a placeholder value.
+- Global cleanup phase 0 now enforces local + CI quality gates: pre-commit checks (`check:file-length`, lint-staged, `test:related-staged`) and PR workflow checks (`check:file-length`, lint, tests, build).
+- The 200-line file policy is active for source folders, with temporary baseline exceptions documented in `scripts/file-length-config.mjs` until decomposition phases complete.
 
 ## Important Code Comments
 
@@ -140,11 +146,11 @@ Local social network with community moderation.
 - [lib/sorting.ts](lib/sorting.ts): pure tri-state ranking engine — individual comparators and aggregate normalized rank averaging.
 - [lib/policy.ts](lib/policy.ts): vote-threshold moderation policy — threshold constants and outcome evaluator.
 - [lib/navigation.ts](lib/navigation.ts): server-side URL navigation query sanitizer and composer for post/reply redirects.
-- [app/components/PostActionControls.tsx](app/components/PostActionControls.tsx): client-side action controls that update immediately and subscribe to backend acknowledgements from the browser queue.
-- [app/components/SortBar.tsx](app/components/SortBar.tsx): shared sort controls used by the feed, moderation queue, and thread replies.
-- [app/components/ThreadReplyComposer.tsx](app/components/ThreadReplyComposer.tsx): client-side toggle wrapper that keeps the thread reply form hidden until the user opens it.
-- [app/components/GeoLocationManager.tsx](app/components/GeoLocationManager.tsx): global client bootstrap for geolocation permissions, live watcher updates, and URL/storage synchronization.
-- [app/components/GeoAwareBackLink.tsx](app/components/GeoAwareBackLink.tsx): client-side back link that restores missing geolocation params from browser state.
+- [app/components/post/PostActionControls.tsx](app/components/post/PostActionControls.tsx): client-side action controls that update immediately and subscribe to backend acknowledgements from the browser queue.
+- [app/components/sort/SortBar.tsx](app/components/sort/SortBar.tsx): shared sort controls used by the feed, moderation queue, and thread replies.
+- [app/components/composer/ThreadReplyComposer.tsx](app/components/composer/ThreadReplyComposer.tsx): client-side toggle wrapper that keeps the thread reply form hidden until the user opens it.
+- [app/components/geolocation/GeoLocationManager.tsx](app/components/geolocation/GeoLocationManager.tsx): global client bootstrap for geolocation permissions, live watcher updates, and URL/storage synchronization.
+- [app/components/layout/GeoAwareBackLink.tsx](app/components/layout/GeoAwareBackLink.tsx): client-side back link that restores missing geolocation params from browser state.
 - [app/components/geolocation/GeoPermissionWatcher.tsx](app/components/geolocation/GeoPermissionWatcher.tsx): listens to browser permission-policy transitions and emits granted/prompt/denied updates.
 - [app/components/geolocation/GeoPeriodicLocationUpdater.tsx](app/components/geolocation/GeoPeriodicLocationUpdater.tsx): polls geolocation periodically while permission remains granted.
 - [app/components/geolocation/GeoIndexedDbWriter.tsx](app/components/geolocation/GeoIndexedDbWriter.tsx): persists latest viewer position snapshots into IndexedDB.
@@ -154,17 +160,22 @@ Local social network with community moderation.
 - [app/components/geolocation/backLinkNavigation.ts](app/components/geolocation/backLinkNavigation.ts): pure geo-aware back-link query restorer used by GeoAwareBackLink.
 - [app/components/geolocation/tabNavigation.ts](app/components/geolocation/tabNavigation.ts): pure Home-tab query builder that preserves/restores geolocation and sort context.
 - [app/components/geolocation/locationIndexedDb.ts](app/components/geolocation/locationIndexedDb.ts): low-level IndexedDB read/write helpers for location state.
-- [app/components/postActionQueue.ts](app/components/postActionQueue.ts): browser-side queue that persists action clicks and flushes them in chronological order.
+- [app/components/post/postActionQueue.ts](app/components/post/postActionQueue.ts): browser-side queue that persists action clicks and flushes them in chronological order.
 - [lib/geo.ts](lib/geo.ts): pure Haversine distance calculator — no I/O or framework dependencies.
 - [app/components/geolocation/useGeoSort.ts](app/components/geolocation/useGeoSort.ts): custom hook encapsulating permission-state listening, GPS acquisition, and router navigation for SortBar.
 - [app/loading.tsx](app/loading.tsx): root Next.js loading skeleton — shown by Suspense while async Server Components stream.
 - [app/error.tsx](app/error.tsx): root Next.js error boundary — catches RSC/Prisma errors and provides a retry control.
 - [next.config.ts](next.config.ts): OWASP security headers (X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, CSP) applied to every route.
-- [app/components/postActionState.ts](app/components/postActionState.ts): pure optimistic-state helpers (applyReactionLocally, applyModerationLocally, mergeServerState) used by PostActionControls.
-- [app/components/PostActionControls.tsx](app/components/PostActionControls.tsx): client-side action controls that update immediately and subscribe to backend acknowledgements from the browser queue.
+- [app/components/post/postActionState.ts](app/components/post/postActionState.ts): pure optimistic-state helpers (applyReactionLocally, applyModerationLocally, mergeServerState) used by PostActionControls.
+- [app/components/post/PostActionControls.tsx](app/components/post/PostActionControls.tsx): client-side action controls that update immediately and subscribe to backend acknowledgements from the browser queue.
 - [lib/simpl.ts](lib/simpl.ts): server-side query helpers and actor identity helpers. Re-exports types from lib/types.ts and evaluateModerationPolicy from lib/policy.ts for backward compatibility.
 - [prisma/schema.prisma](prisma/schema.prisma): PostgreSQL Simpl data model.
 - [lib/prisma.ts](lib/prisma.ts): shared Prisma client lifecycle.
+- [scripts/check-file-length.mjs](scripts/check-file-length.mjs): source-file size guard that enforces the cleanup line threshold for app/lib/prisma/scripts.
+- [scripts/file-length-config.mjs](scripts/file-length-config.mjs): centralized threshold + temporary exception baseline to support incremental decomposition.
+- [scripts/run-related-tests.mjs](scripts/run-related-tests.mjs): staged-file-aware Vitest runner used by pre-commit for targeted safety checks.
+- [.husky/pre-commit](.husky/pre-commit): local commit gate chaining file-length, staged lint, and related tests.
+- [../.github/workflows/quality-gates.yml](../.github/workflows/quality-gates.yml): pull-request quality workflow that enforces the same gates in CI.
 
 ## Test Suite
 
@@ -173,12 +184,12 @@ Run with `npm test` (single pass) or `npm run test:watch` (interactive).
 - [lib/\_\_tests\_\_/policy.test.ts](lib/__tests__/policy.test.ts): 11 tests — all branches of `evaluateModerationPolicy`.
 - [lib/\_\_tests\_\_/navigation.test.ts](lib/__tests__/navigation.test.ts): 28 tests — `parseSortModeValue`, `buildNavigationQuery`, `withNavigationQuery`.
 - [lib/\_\_tests\_\_/sorting.test.ts](lib/__tests__/sorting.test.ts): 14 tests — individual comparators and `sortPostsByAggregateRanks`.
-- [app/components/\_\_tests\_\_/postActionState.test.ts](app/components/__tests__/postActionState.test.ts): 16 tests — `applyReactionLocally`, `applyModerationLocally`, `mergeServerState`.
+- [app/components/post/postActionState.test.ts](app/components/post/postActionState.test.ts): 16 tests — `applyReactionLocally`, `applyModerationLocally`, `mergeServerState`.
 - [app/components/geolocation/\_\_tests\_\_/browserState.test.ts](app/components/geolocation/__tests__/browserState.test.ts): 17 tests — `normalizeSortMode`, `parseLocationSnapshot`, `readSortPreferences`, `ensureDistanceModeFromPreferences`.
 - [app/components/geolocation/\_\_tests\_\_/composerNavigation.test.ts](app/components/geolocation/__tests__/composerNavigation.test.ts): 4 tests — composer navigation query composition and coordinate-preservation behavior.
 - [app/components/geolocation/\_\_tests\_\_/backLinkNavigation.test.ts](app/components/geolocation/__tests__/backLinkNavigation.test.ts): 3 tests — back-link geolocation query restoration and stale activity-marker fallback.
 - [app/components/geolocation/\_\_tests\_\_/tabNavigation.test.ts](app/components/geolocation/__tests__/tabNavigation.test.ts): 3 tests — Home-tab geolocation restoration and query sanitization.
-- [app/components/\_\_tests\_\_/postActionQueue.test.ts](app/components/__tests__/postActionQueue.test.ts): 15 tests — `enqueueReaction`, `enqueueModerationVote`, flush success/failure/offline, subscriber notifications, chronological ordering.
+- [app/components/post/postActionQueue.test.ts](app/components/post/postActionQueue.test.ts): 15 tests — `enqueueReaction`, `enqueueModerationVote`, flush success/failure/offline, subscriber notifications, chronological ordering.
 - [lib/\_\_tests\_\_/geo.test.ts](lib/__tests__/geo.test.ts): 7 tests — `calculateDistanceKm` null-guard, same-location, known coordinate pairs, symmetry.
 - [app/components/geolocation/\_\_tests\_\_/testHelpers.ts](app/components/geolocation/__tests__/testHelpers.ts): shared `installMockLocalStorage` utility used by all geolocation test files.
 
@@ -207,6 +218,8 @@ Run with `npm test` (single pass) or `npm run test:watch` (interactive).
 2. Keep `prisma/schema.prisma` and `prisma/seed.ts` aligned when new required fields are introduced.
 3. Document any new top-level page or server action entry point here.
 4. Keep generated folders such as `.next` and `node_modules` out of the documentation scope.
+5. Keep `scripts/file-length-config.mjs` exception entries temporary and remove them as each oversized module is decomposed.
+6. Keep local and CI quality gates aligned: `.husky/pre-commit`, `package.json` scripts, and `../.github/workflows/quality-gates.yml`.
 
 ## Known Constraint
 
@@ -217,5 +230,6 @@ Run with `npm test` (single pass) or `npm run test:watch` (interactive).
 - Refine the distance fallback UX when geolocation is denied or unavailable.
 - Add richer thread navigation for deeper reply trees.
 - Add a clearer moderation policy UI and status explanations.
+
 
 

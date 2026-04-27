@@ -1,11 +1,11 @@
-/**
+﻿/**
  * Last updated: 2026-04-22
  * Changes: Switched moderation sorting to tri-state multi-filter modes and persisted all filter modes in navigation links.
  * Purpose: Render the posts currently under community review.
  */
 
-import PostCard from "@/app/components/PostCard";
-import SortBar from "@/app/components/SortBar";
+import PostCard from "@/app/components/post/PostCard";
+import SortBar from "@/app/components/sort/SortBar";
 import { buildNavigationQueryFromState } from "@/lib/navigation";
 import {
   getModerationQueue,

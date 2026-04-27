@@ -1,0 +1,49 @@
+# Last updated: 2026-04-27
+# Changes: Added PR quality gates for file length, lint, tests, and production build in simpl-app.
+# Purpose: Enforce cleanup constraints and prevent regressions before merge.
+
+name: SimplNext Quality Gates
+
+on:
+  pull_request:
+    branches:
+      - main
+      - master
+    paths:
+      - "simpl-app/**"
+      - ".github/workflows/quality-gates.yml"
+  workflow_dispatch:
+
+jobs:
+  quality:
+    name: Lint, Test, Build, File-Length
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: simpl-app
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: simpl-app/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check file-length guard
+        run: npm run check:file-length
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Run tests
+        run: npm test
+
+      - name: Run production build
+        run: npm run build
