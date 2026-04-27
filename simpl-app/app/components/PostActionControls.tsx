@@ -1,6 +1,6 @@
 /**
- * Last updated: 2026-04-22
- * Changes: Moved post actions to a browser-persisted queue and added local Good/Bad toggle-off parity with server acknowledgements.
+ * Last updated: 2026-04-27
+ * Changes: Extracted pure optimistic-state helpers to postActionState.ts; component now focuses solely on React/UI concerns.
  * Purpose: Handle Like/DisLike/Good/Bad interactions with immediate UI feedback while server actions complete.
  */
 
@@ -9,8 +9,11 @@
 import { useEffect, useState } from "react";
 import { ModerationDecision, ReactionType } from "@prisma/client";
 import {
-  type PostActionState,
-} from "@/app/actions";
+  applyModerationLocally,
+  applyReactionLocally,
+  mergeServerState,
+  type OptimisticPostState,
+} from "@/app/components/postActionState";
 import {
   enqueueModerationVote,
   enqueueReaction,
@@ -18,6 +21,10 @@ import {
   startPostActionQueue,
   subscribeToPostActionQueue,
 } from "@/app/components/postActionQueue";
+
+// ---------------------------------------------------------------------------
+// Component types
+// ---------------------------------------------------------------------------
 
 type PostActionControlsProps = {
   postId: string;
@@ -31,108 +38,6 @@ type PostActionControlsProps = {
   viewerModerationDecision: ModerationDecision | null;
 };
 
-type OptimisticState = {
-  likeCount: number;
-  dislikeCount: number;
-  keepVoteCount: number;
-  removeVoteCount: number;
-  viewerReaction: ReactionType | null;
-  viewerModerationDecision: ModerationDecision | null;
-};
-
-function clampPositive(value: number) {
-  return Math.max(0, value);
-}
-
-function applyReactionLocally(
-  state: OptimisticState,
-  nextType: ReactionType,
-): OptimisticState {
-  const next = { ...state };
-
-  if (state.viewerReaction === nextType) {
-    if (nextType === ReactionType.LIKE) {
-      next.likeCount = clampPositive(state.likeCount - 1);
-    } else {
-      next.dislikeCount = clampPositive(state.dislikeCount - 1);
-    }
-
-    next.viewerReaction = null;
-    return next;
-  }
-
-  if (state.viewerReaction === ReactionType.LIKE) {
-    next.likeCount = clampPositive(state.likeCount - 1);
-  }
-
-  if (state.viewerReaction === ReactionType.DISLIKE) {
-    next.dislikeCount = clampPositive(state.dislikeCount - 1);
-  }
-
-  if (nextType === ReactionType.LIKE) {
-    next.likeCount = state.likeCount + 1;
-  } else {
-    next.dislikeCount = state.dislikeCount + 1;
-  }
-
-  next.viewerReaction = nextType;
-  return next;
-}
-
-function applyModerationLocally(
-  state: OptimisticState,
-  nextDecision: ModerationDecision,
-): OptimisticState {
-  const next = { ...state };
-
-  if (state.viewerModerationDecision === nextDecision) {
-    if (nextDecision === ModerationDecision.KEEP) {
-      next.keepVoteCount = clampPositive(state.keepVoteCount - 1);
-    }
-
-    if (nextDecision === ModerationDecision.REMOVE) {
-      next.removeVoteCount = clampPositive(state.removeVoteCount - 1);
-    }
-
-    next.viewerModerationDecision = null;
-    return next;
-  }
-
-  if (state.viewerModerationDecision === ModerationDecision.KEEP) {
-    next.keepVoteCount = clampPositive(state.keepVoteCount - 1);
-  }
-
-  if (state.viewerModerationDecision === ModerationDecision.REMOVE) {
-    next.removeVoteCount = clampPositive(state.removeVoteCount - 1);
-  }
-
-  if (nextDecision === ModerationDecision.KEEP) {
-    next.keepVoteCount = state.keepVoteCount + 1;
-  }
-
-  if (nextDecision === ModerationDecision.REMOVE) {
-    next.removeVoteCount = state.removeVoteCount + 1;
-  }
-
-  next.viewerModerationDecision = nextDecision;
-  return next;
-}
-
-function mergeServerState(
-  state: OptimisticState,
-  nextState: PostActionState,
-): OptimisticState {
-  return {
-    ...state,
-    dislikeCount: nextState.dislikeCount,
-    keepVoteCount: nextState.keepVoteCount,
-    likeCount: nextState.likeCount,
-    removeVoteCount: nextState.removeVoteCount,
-    viewerModerationDecision: nextState.viewerModerationDecision,
-    viewerReaction: nextState.viewerReaction,
-  };
-}
-
 export default function PostActionControls({
   postId,
   threadId,
@@ -144,7 +49,7 @@ export default function PostActionControls({
   viewerReaction,
   viewerModerationDecision,
 }: PostActionControlsProps) {
-  const [state, setState] = useState<OptimisticState>({
+  const [state, setState] = useState<OptimisticPostState>({
     dislikeCount,
     keepVoteCount,
     likeCount,

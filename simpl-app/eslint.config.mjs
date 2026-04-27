@@ -12,7 +12,18 @@ const compat = new FlatCompat({
 
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
-  globalIgnores(["app/generated/prisma/"])
+  globalIgnores(["app/generated/prisma/"]),
+  {
+    rules: {
+      // Prohibit `any` — use `unknown` or a proper type instead
+      "@typescript-eslint/no-explicit-any": "error",
+      // Enforce `import type` for type-only imports (matches existing codebase style)
+      "@typescript-eslint/consistent-type-imports": [
+        "error",
+        { prefer: "type-imports", fixStyle: "inline-type-imports" },
+      ],
+    },
+  },
 ];
 
 export default eslintConfig;

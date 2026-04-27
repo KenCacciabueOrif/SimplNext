@@ -1,11 +1,11 @@
 /**
- * Last updated: 2026-04-24
- * Changes: Modularized — pure types moved to lib/types.ts, sorting algorithms to lib/sorting.ts, moderation policy to lib/policy.ts. This file now owns only server-side queries, actor management, and request-level parsing. All exports remain stable for consumers.
+ * Last updated: 2026-04-27
+ * Changes: Fixed ReactionType import to use inline type-import to satisfy consistent-type-imports ESLint rule.
  * Purpose: Server-side data access (Prisma queries), anonymous actor management, and sort-state resolution for the Simpl application.
  */
 
 import { cookies } from "next/headers";
-import { ModerationDecision, PostStatus, ReactionType } from "@prisma/client";
+import { ModerationDecision, PostStatus, type ReactionType } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { sortPostsByAggregateRanks } from "@/lib/sorting";
 import { evaluateModerationPolicy } from "@/lib/policy";

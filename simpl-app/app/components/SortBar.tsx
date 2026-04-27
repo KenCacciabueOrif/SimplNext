@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * Last updated: 2026-04-24
- * Changes: Replaced single-sort controls with tri-state filter toggles (down/up/off), aligned distance feedback with global geolocation bootstrap behavior, restored click-time location fallback for immediate distance activation, and added explicit prompt-vs-denied GPS status messaging with user-triggered activation.
+ * Last updated: 2026-04-27
+ * Changes: Extracted duplicated navigator.geolocation.getCurrentPosition call into a module-level requestCurrentPosition helper to eliminate repeated options objects.
  * Purpose: Render the sort controls in the same structural slot as the original Simpl interface.
  */
 
@@ -14,6 +14,26 @@ import {
   SORT_PREFERENCES_STORAGE_KEY,
 } from "@/app/components/geolocation/constants";
 import type { PermissionStateValue } from "@/app/components/geolocation/types";
+
+// ---------------------------------------------------------------------------
+// Geolocation helper
+// ---------------------------------------------------------------------------
+
+function requestCurrentPosition(
+  onSuccess: (lat: number, lng: number) => void,
+  onError: (error: GeolocationPositionError) => void,
+  options: PositionOptions,
+) {
+  navigator.geolocation.getCurrentPosition(
+    (position) => onSuccess(position.coords.latitude, position.coords.longitude),
+    onError,
+    options,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sort helpers
+// ---------------------------------------------------------------------------
 
 type SortBarProps = {
   pathname: string;
@@ -74,8 +94,8 @@ export default function SortBar({ pathname, sortState, viewerLocation }: SortBar
     setDistanceError(null);
     setIsLocating(true);
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
+    requestCurrentPosition(
+      (lat, lng) => {
         setIsLocating(false);
 
         const nextSortState: FeedSortState = {
@@ -83,7 +103,7 @@ export default function SortBar({ pathname, sortState, viewerLocation }: SortBar
           distance: sortState.distance === "off" ? "down" : sortState.distance,
         };
 
-        navigateToSortState(nextSortState, position.coords.latitude, position.coords.longitude);
+        navigateToSortState(nextSortState, lat, lng);
       },
       (error) => {
         setIsLocating(false);
@@ -95,11 +115,7 @@ export default function SortBar({ pathname, sortState, viewerLocation }: SortBar
 
         setDistanceError("Autorisation en attente ou position indisponible. Réessaie.");
       },
-      {
-        enableHighAccuracy: true,
-        maximumAge: 10_000,
-        timeout: 12_000,
-      },
+      { enableHighAccuracy: true, maximumAge: 10_000, timeout: 12_000 },
     );
   }
 
@@ -147,10 +163,10 @@ export default function SortBar({ pathname, sortState, viewerLocation }: SortBar
 
     setIsLocating(true);
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
+    requestCurrentPosition(
+      (lat, lng) => {
         setIsLocating(false);
-        navigateToSortState(nextSortState, position.coords.latitude, position.coords.longitude);
+        navigateToSortState(nextSortState, lat, lng);
       },
       (error) => {
         setIsLocating(false);
@@ -162,11 +178,7 @@ export default function SortBar({ pathname, sortState, viewerLocation }: SortBar
 
         setDistanceError("Impossible de récupérer la position actuelle.");
       },
-      {
-        enableHighAccuracy: true,
-        maximumAge: 60_000,
-        timeout: 10_000,
-      },
+      { enableHighAccuracy: true, maximumAge: 60_000, timeout: 10_000 },
     );
   }
 

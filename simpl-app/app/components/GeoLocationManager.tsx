@@ -1,6 +1,6 @@
 /**
- * Last updated: 2026-04-24
- * Changes: Reworked geolocation flow into a 4-component orchestration: permission watcher, periodic updater, IndexedDB writer, and feed refresher. App bootstrap now checks IndexedDB first when permission is granted.
+ * Last updated: 2026-04-27
+ * Changes: Collapsed handlePermissionStateChange and the local applyPermissionState (duplicated in effect 3) into a single useCallback; eliminated ~20 lines of identical logic.
  * Purpose: Coordinate geolocation permissions, persistence, periodic updates, and SSR refresh triggers.
  */
 
@@ -39,7 +39,12 @@ export default function GeoLocationManager() {
     }));
   }, []);
 
-  const handlePermissionStateChange = useCallback((state: PermissionStateValue) => {
+  // ---------------------------------------------------------------------------
+  // Shared permission state handler — used by GeoPermissionWatcher, the home-page
+  // permission check effect, and the browser cache-restore reconciler.
+  // ---------------------------------------------------------------------------
+
+  const applyPermissionState = useCallback((state: PermissionStateValue) => {
     setPermissionState(state);
     window.dispatchEvent(new CustomEvent(PERMISSION_STATE_EVENT_NAME, { detail: state }));
 
@@ -113,25 +118,15 @@ export default function GeoLocationManager() {
 
     let isMounted = true;
 
-    const applyPermissionState = (state: PermissionStateValue) => {
-      if (!isMounted) {
-        return;
-      }
-
-      setPermissionState(state);
-      window.dispatchEvent(new CustomEvent(PERMISSION_STATE_EVENT_NAME, { detail: state }));
-
-      if (state === "denied") {
-        const disabledSnapshot = toDisabledLocation();
-        setLocationSnapshot(disabledSnapshot);
-        requestRefresh(disabledSnapshot);
-      }
-    };
-
     void navigator.permissions
       .query({ name: "geolocation" as PermissionName })
       .then((permissionStatus) => {
         const state = permissionStatus.state as PermissionStateValue;
+
+        if (!isMounted) {
+          return;
+        }
+
         applyPermissionState(state);
 
         if (state !== "granted" || !("geolocation" in navigator)) {
@@ -165,7 +160,7 @@ export default function GeoLocationManager() {
     return () => {
       isMounted = false;
     };
-  }, [pathname, requestRefresh]);
+  }, [pathname, applyPermissionState, requestRefresh]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -182,15 +177,7 @@ export default function GeoLocationManager() {
         .then((permissionStatus) => {
           const state = permissionStatus.state as PermissionStateValue;
 
-          setPermissionState(state);
-          window.dispatchEvent(new CustomEvent(PERMISSION_STATE_EVENT_NAME, { detail: state }));
-
-          if (state === "denied") {
-            const disabledSnapshot = toDisabledLocation();
-            setLocationSnapshot(disabledSnapshot);
-            requestRefresh(disabledSnapshot);
-            return;
-          }
+          applyPermissionState(state);
 
           if (state === "granted" && locationSnapshot) {
             requestRefresh({
@@ -233,11 +220,11 @@ export default function GeoLocationManager() {
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener("popstate", handlePopState);
     };
-  }, [locationSnapshot, requestRefresh]);
+  }, [locationSnapshot, applyPermissionState, requestRefresh]);
 
   return (
     <>
-      <GeoPermissionWatcher onStateChange={handlePermissionStateChange} />
+      <GeoPermissionWatcher onStateChange={applyPermissionState} />
       <GeoPeriodicLocationUpdater
         enabled={permissionState === "granted"}
         onLocation={handleLocationUpdate}

@@ -1,3 +1,7 @@
+> Last updated: 2026-04-27
+> Changes: Phase 4 — Lint enforcement + test suite: added @typescript-eslint/no-explicit-any and consistent-type-imports ESLint rules; installed Vitest with path-alias support; 69 tests across 4 files covering lib/policy.ts, lib/navigation.ts, lib/sorting.ts, and app/components/postActionState.ts (all pure functions).
+> Last updated: 2026-04-27
+> Changes: Phase 3 — UI decomposition: extracted pure optimistic-state helpers (applyReactionLocally, applyModerationLocally, mergeServerState) from PostActionControls into postActionState.ts; collapsed duplicated permission handler in GeoLocationManager into a single applyPermissionState useCallback; extracted requestCurrentPosition helper in SortBar to eliminate duplicated getCurrentPosition options blocks.
 > Last updated: 2026-04-24
 > Changes: Phase 2 — Modularized lib/simpl.ts into dedicated domain modules: pure sorting in lib/sorting.ts, moderation policy in lib/policy.ts, URL navigation helpers in lib/navigation.ts. Domain types consolidated in lib/types.ts. app/actions.ts now imports from lib/navigation.ts and lib/policy.ts instead of duplicating those helpers locally.
 > Last updated: 2026-04-24
@@ -69,7 +73,7 @@ Local social network with community moderation.
 - Geolocation IndexedDB helpers on [app/components/geolocation/locationIndexedDb.ts](app/components/geolocation/locationIndexedDb.ts).
 - Geolocation browser-state helpers on [app/components/geolocation/browserState.ts](app/components/geolocation/browserState.ts).
 - Local-first Like/DisLike/Good/Bad controls on [app/components/PostActionControls.tsx](app/components/PostActionControls.tsx).
-- Browser-persisted chronological action queue on [app/components/postActionQueue.ts](app/components/postActionQueue.ts).
+- Pure optimistic-state helpers for post actions on [app/components/postActionState.ts](app/components/postActionState.ts).
 - Shared post queries and anonymous actor helpers on [lib/simpl.ts](lib/simpl.ts).
 - Domain types (SortMode, FeedSortState, ViewerLocation, ModerationPolicyOutcome, PostListItem) on [lib/types.ts](lib/types.ts).
 - Pure tri-state sorting algorithms and aggregate rank engine on [lib/sorting.ts](lib/sorting.ts).
@@ -128,12 +132,20 @@ Local social network with community moderation.
 - [app/components/geolocation/browserState.ts](app/components/geolocation/browserState.ts): shared browser-state parsing helpers used by geolocation-aware client components.
 - [app/components/geolocation/locationIndexedDb.ts](app/components/geolocation/locationIndexedDb.ts): low-level IndexedDB read/write helpers for location state.
 - [app/components/postActionQueue.ts](app/components/postActionQueue.ts): browser-side queue that persists action clicks and flushes them in chronological order.
-- [app/components/PostComposer.tsx](app/components/PostComposer.tsx): create/reply composer that now injects hidden coordinates from live browser location snapshots.
+- [app/components/postActionState.ts](app/components/postActionState.ts): pure optimistic-state helpers (applyReactionLocally, applyModerationLocally, mergeServerState) used by PostActionControls.
+- [app/components/PostActionControls.tsx](app/components/PostActionControls.tsx): client-side action controls that update immediately and subscribe to backend acknowledgements from the browser queue.
 - [lib/simpl.ts](lib/simpl.ts): server-side query helpers and actor identity helpers. Re-exports types from lib/types.ts and evaluateModerationPolicy from lib/policy.ts for backward compatibility.
 - [prisma/schema.prisma](prisma/schema.prisma): PostgreSQL Simpl data model.
 - [lib/prisma.ts](lib/prisma.ts): shared Prisma client lifecycle.
 
-## Run Steps
+## Test Suite
+
+Run with `npm test` (single pass) or `npm run test:watch` (interactive).
+
+- [lib/\_\_tests\_\_/policy.test.ts](lib/__tests__/policy.test.ts): 11 tests — all branches of `evaluateModerationPolicy`.
+- [lib/\_\_tests\_\_/navigation.test.ts](lib/__tests__/navigation.test.ts): 28 tests — `parseSortModeValue`, `buildNavigationQuery`, `withNavigationQuery`.
+- [lib/\_\_tests\_\_/sorting.test.ts](lib/__tests__/sorting.test.ts): 14 tests — individual comparators and `sortPostsByAggregateRanks`.
+- [app/components/\_\_tests\_\_/postActionState.test.ts](app/components/__tests__/postActionState.test.ts): 16 tests — `applyReactionLocally`, `applyModerationLocally`, `mergeServerState`.
 
 1. Install dependencies with `npm install`.
 2. Ensure `DATABASE_URL` is set in `.env`.
