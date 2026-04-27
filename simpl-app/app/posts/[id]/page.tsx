@@ -57,7 +57,7 @@ export default async function PostPage({
         <GeoAwareBackLink fallbackHref={backToParentHref} className="thread-bar-link">
           {post.parentId ? "Back to parent" : "Back to feed"}
         </GeoAwareBackLink>
-        <span className="thread-bar-title">Commentaires</span>
+        <span className="thread-bar-title" aria-current="page">Commentaires</span>
       </div>
 
       <SortBar pathname={`/posts/${id}`} sortState={sortState} viewerLocation={viewerLocation} />

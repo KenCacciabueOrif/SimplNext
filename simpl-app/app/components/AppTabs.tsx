@@ -1,6 +1,6 @@
 /**
  * Last updated: 2026-04-27
- * Changes: Home tab now preserves and restores active geolocation sort context (distance mode + coordinates) instead of resetting to root URL.
+ * Changes: Phase D — added aria-current="page" to the active tab link alongside the existing is-active class.
  * Purpose: Render the primary navigation in the same structural position as the original Simpl app.
  */
 
@@ -19,10 +19,18 @@ export default function AppTabs() {
 
   return (
     <nav className="legacy-tabs" aria-label="Primary">
-      <Link href={homeHref} className={!isModeration ? "is-active" : undefined}>
+      <Link
+        href={homeHref}
+        className={!isModeration ? "is-active" : undefined}
+        aria-current={!isModeration ? "page" : undefined}
+      >
         Home
       </Link>
-      <Link href="/moderation" className={isModeration ? "is-active" : undefined}>
+      <Link
+        href="/moderation"
+        className={isModeration ? "is-active" : undefined}
+        aria-current={isModeration ? "page" : undefined}
+      >
         Moderation
       </Link>
     </nav>

@@ -1,6 +1,6 @@
 /*
- * Last updated: 2026-04-22
- * Changes: Added active/pending button feedback styles, restored the missing top border on the composer panel, styled the composer submit action, constrained the thread layout, added a collapsible thread reply composer that starts hidden, and introduced composer location status feedback.
+ * Last updated: 2026-04-27
+ * Changes: Phase A — raised minimum font-sizes to meet 14px ergonomic baseline; constrained post-body line length to 60ch; improved line-height. Phase B — raised all interactive touch targets to 44px min-height. Phase C — added 150ms background-color/color transitions on interactive elements; added prefers-reduced-motion override. Phase D — added .loading-skeleton, .error-boundary CSS.
  * Purpose: Define the global visual system and adaptive behavior of the Simpl UI.
  */
 
@@ -99,9 +99,9 @@ select {
   flex: 1 1 0;
   font-size: 1rem;
   justify-content: center;
-  min-height: 32px;
+  min-height: 44px;
   min-width: 0;
-  padding: 4px 6px;
+  padding: 4px 8px;
   text-align: center;
 }
 
@@ -138,7 +138,7 @@ select {
   border-left: 1px solid var(--border);
   border-right: 1px solid var(--border);
   color: var(--muted);
-  font-size: 0.74rem;
+  font-size: 0.8125rem;
   margin: 0;
   padding: 6px 10px;
   text-align: center;
@@ -180,7 +180,7 @@ select {
   border-right: 1px solid var(--border);
   display: flex;
   flex-wrap: wrap;
-  font-size: 0.6rem;
+  font-size: 0.8125rem;
   font-weight: 700;
   gap: 4px 12px;
   justify-content: space-between;
@@ -211,15 +211,16 @@ select {
 
 .post-body {
   font-size: 0.9rem;
-  line-height: 1.35;
-  margin: 0;
-  max-height: 7.2em;
+  line-height: 1.5;
+  margin: 0 auto;
+  max-height: 7.5em;
+  max-width: 60ch;
   overflow: hidden;
   word-break: break-word;
 }
 
 .post-status {
-  font-size: 0.62rem;
+  font-size: 0.8125rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   margin: 10px 0 0;
@@ -263,11 +264,11 @@ select {
   color: var(--foreground);
   cursor: pointer;
   display: inline-flex;
-  font-size: 0.72rem;
+  font-size: 0.875rem;
   justify-content: center;
-  min-height: 28px;
+  min-height: 44px;
   min-width: 54px;
-  padding: 0 8px;
+  padding: 0 10px;
   text-align: center;
   white-space: nowrap;
 }
@@ -308,9 +309,9 @@ select {
   color: var(--foreground);
   cursor: pointer;
   display: inline-flex;
-  font-size: 0.82rem;
+  font-size: 0.875rem;
   justify-content: center;
-  min-height: 32px;
+  min-height: 44px;
   min-width: 148px;
   padding: 0 12px;
   text-align: center;
@@ -357,9 +358,9 @@ select {
   color: var(--foreground);
   cursor: pointer;
   display: inline-flex;
-  font-size: 0.82rem;
+  font-size: 0.875rem;
   justify-content: center;
-  min-height: 34px;
+  min-height: 44px;
   padding: 0 14px;
   text-align: center;
   width: 100%;
@@ -404,8 +405,9 @@ select {
 .panel-title p,
 .empty-state p {
   color: var(--muted);
-  font-size: 0.82rem;
-  margin: 0;
+  font-size: 0.875rem;
+  margin: 0 auto;
+  max-width: 60ch;
   text-align: center;
 }
 
@@ -434,12 +436,12 @@ select {
 }
 
 .field span {
-  font-size: 0.8rem;
+  font-size: 0.875rem;
 }
 
 .thread-bar-link,
 .thread-bar-title {
-  font-size: 0.85rem;
+  font-size: 0.875rem;
 }
 
 .thread-bar-title {
@@ -470,6 +472,38 @@ select {
   color: var(--panel-active-text);
 }
 
+/* ---------------------------------------------------------------------------
+ * Transitions — Phase C ergonomics conformance (2026-04-27)
+ * Animate only background-color and color (cheap properties) so interactive
+ * elements give tactile feedback without triggering layout recalculation.
+ * --------------------------------------------------------------------------- */
+
+.legacy-tabs a,
+.legacy-sortbar a,
+.legacy-sortbar button,
+.legacy-button,
+.legacy-link-button,
+.reply-toggle-button,
+.button,
+.thread-bar-link,
+.floating-create {
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .legacy-tabs a,
+  .legacy-sortbar a,
+  .legacy-sortbar button,
+  .legacy-button,
+  .legacy-link-button,
+  .reply-toggle-button,
+  .button,
+  .thread-bar-link,
+  .floating-create {
+    transition: none;
+  }
+}
+
 @media (max-width: 479px) {
   .app-shell {
     width: 100%;
@@ -486,8 +520,8 @@ select {
   .thread-bar-link,
   .thread-bar-title {
     font-size: 0.88rem;
-    min-height: 30px;
-    padding: 4px;
+    min-height: 44px;
+    padding: 4px 6px;
   }
 
   .post-body-panel {
@@ -500,7 +534,7 @@ select {
   }
 
   .post-body {
-    font-size: 0.84rem;
+    font-size: 0.875rem;
   }
 
   .floating-create {
@@ -527,7 +561,7 @@ select {
   }
 
   .post-meta-bar {
-    font-size: 0.58rem;
+    font-size: 0.75rem;
     gap: 6px;
     padding: 4px 8px;
   }
@@ -542,9 +576,9 @@ select {
 
   .legacy-button,
   .legacy-link-button {
-    font-size: 0.68rem;
+    font-size: 0.8125rem;
     min-width: 0;
-    padding: 0 6px;
+    padding: 0 8px;
   }
 }
 
@@ -592,10 +626,106 @@ select {
 
   .legacy-button,
   .legacy-link-button {
-    font-size: 0.82rem;
-    min-height: 32px;
-    padding: 0 10px;
+    font-size: 0.875rem;
+    min-height: 44px;
+    padding: 0 12px;
   }
+}
+
+/* ---------------------------------------------------------------------------
+ * Loading skeleton — Phase D ergonomics conformance (2026-04-27)
+ * Pulsing placeholder cards give visual feedback while Prisma queries resolve
+ * and prevent a blank screen during SSR streaming.
+ * --------------------------------------------------------------------------- */
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.75; }
+}
+
+.loading-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+}
+
+.loading-skeleton__label {
+  color: var(--muted);
+  font-size: 0.875rem;
+  margin: 16px auto;
+  text-align: center;
+}
+
+.loading-skeleton-card {
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+  border-bottom: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 12px;
+}
+
+.loading-skeleton-card:first-of-type {
+  border-top: 1px solid var(--border);
+}
+
+.loading-skeleton-bar {
+  background: var(--foreground);
+  border-radius: 2px;
+  height: 0.875rem;
+  opacity: 0.15;
+}
+
+.loading-skeleton-bar--title {
+  height: 1.2rem;
+  width: 55%;
+}
+
+.loading-skeleton-bar--body {
+  width: 80%;
+}
+
+.loading-skeleton-bar--meta {
+  height: 0.75rem;
+  width: 40%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-skeleton-card {
+    animation: none;
+    opacity: 0.5;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Error boundary — Phase D ergonomics conformance (2026-04-27)
+ * --------------------------------------------------------------------------- */
+
+.error-boundary {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  justify-content: center;
+  min-height: 40vh;
+  padding: 24px 16px;
+  text-align: center;
+}
+
+.error-boundary h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.error-boundary p {
+  color: var(--muted);
+  font-size: 0.875rem;
+  margin: 0;
+  max-width: 52ch;
 }
 
 @media (min-width: 1024px) {
