@@ -6,6 +6,7 @@
 
 import Link from "next/link";
 import PostComposer from "@/app/components/PostComposer";
+import { parseSortModeValue } from "@/lib/navigation";
 
 export default async function NewPostPage({
   searchParams,
@@ -22,17 +23,14 @@ export default async function NewPostPage({
   const { popularity, date, distance, lat, lng, geo } = await searchParams;
   const backParams = new URLSearchParams();
 
-  if (popularity === "down" || popularity === "up" || popularity === "off") {
-    backParams.set("popularity", popularity);
-  }
+  const parsedPopularity = parseSortModeValue(popularity ?? null);
+  if (parsedPopularity) backParams.set("popularity", parsedPopularity);
 
-  if (date === "down" || date === "up" || date === "off") {
-    backParams.set("date", date);
-  }
+  const parsedDate = parseSortModeValue(date ?? null);
+  if (parsedDate) backParams.set("date", parsedDate);
 
-  if (distance === "down" || distance === "up" || distance === "off") {
-    backParams.set("distance", distance);
-  }
+  const parsedDistance = parseSortModeValue(distance ?? null);
+  if (parsedDistance) backParams.set("distance", parsedDistance);
 
   if (lat && lng) {
     backParams.set("lat", lat);

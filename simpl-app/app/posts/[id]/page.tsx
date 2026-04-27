@@ -9,8 +9,8 @@ import GeoAwareBackLink from "@/app/components/GeoAwareBackLink";
 import PostCard from "@/app/components/PostCard";
 import SortBar from "@/app/components/SortBar";
 import ThreadReplyComposer from "@/app/components/ThreadReplyComposer";
+import { buildNavigationQueryFromState } from "@/lib/navigation";
 import {
-  DEFAULT_FEED_SORT_STATE,
   getThreadPageData,
   parseViewerLocation,
   resolveFeedSortState,
@@ -42,18 +42,7 @@ export default async function PostPage({
   }
 
   const { post, replies }: { post: PostListItem; replies: PostListItem[] } = threadData;
-  const navigationParams = new URLSearchParams();
-
-  navigationParams.set("popularity", sortState.popularity ?? DEFAULT_FEED_SORT_STATE.popularity);
-  navigationParams.set("date", sortState.date ?? DEFAULT_FEED_SORT_STATE.date);
-  navigationParams.set("distance", sortState.distance ?? DEFAULT_FEED_SORT_STATE.distance);
-
-  if (lat && lng) {
-    navigationParams.set("lat", lat);
-    navigationParams.set("lng", lng);
-  }
-
-  const navigationQuery = navigationParams.toString();
+  const navigationQuery = buildNavigationQueryFromState(sortState, viewerLocation);
   const backToParentHref = post.parentId
     ? navigationQuery
       ? `/posts/${post.parentId}?${navigationQuery}`

@@ -6,8 +6,8 @@
 
 import PostCard from "@/app/components/PostCard";
 import SortBar from "@/app/components/SortBar";
+import { buildNavigationQueryFromState } from "@/lib/navigation";
 import {
-  DEFAULT_FEED_SORT_STATE,
   getModerationQueue,
   parseViewerLocation,
   resolveFeedSortState,
@@ -29,18 +29,7 @@ export default async function ModerationPage({
   const viewerLocation = parseViewerLocation(lat, lng);
   const sortState = resolveFeedSortState({ date, distance, popularity, sort }, viewerLocation);
   const posts = await getModerationQueue(sortState, viewerLocation);
-  const navigationParams = new URLSearchParams();
-
-  navigationParams.set("popularity", sortState.popularity ?? DEFAULT_FEED_SORT_STATE.popularity);
-  navigationParams.set("date", sortState.date ?? DEFAULT_FEED_SORT_STATE.date);
-  navigationParams.set("distance", sortState.distance ?? DEFAULT_FEED_SORT_STATE.distance);
-
-  if (viewerLocation) {
-    navigationParams.set("lat", viewerLocation.latitude.toFixed(6));
-    navigationParams.set("lng", viewerLocation.longitude.toFixed(6));
-  }
-
-  const navigationQuery = navigationParams.toString();
+  const navigationQuery = buildNavigationQueryFromState(sortState, viewerLocation);
 
   return (
     <div className="screen-stack">

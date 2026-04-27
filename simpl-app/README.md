@@ -81,6 +81,10 @@ Local social network with community moderation.
 - Composer navigation-query helper on [app/components/geolocation/composerNavigation.ts](app/components/geolocation/composerNavigation.ts).
 - Geo-aware back-link query helper on [app/components/geolocation/backLinkNavigation.ts](app/components/geolocation/backLinkNavigation.ts).
 - Home-tab navigation helper on [app/components/geolocation/tabNavigation.ts](app/components/geolocation/tabNavigation.ts).
+- Root loading skeleton on [app/loading.tsx](app/loading.tsx).
+- Root error boundary on [app/error.tsx](app/error.tsx).
+- Geolocation + sort hook on [app/components/geolocation/useGeoSort.ts](app/components/geolocation/useGeoSort.ts).
+- Haversine distance math on [lib/geo.ts](lib/geo.ts).
 - Local-first Like/DisLike/Good/Bad controls on [app/components/PostActionControls.tsx](app/components/PostActionControls.tsx).
 - Pure optimistic-state helpers for post actions on [app/components/postActionState.ts](app/components/postActionState.ts).
 - Shared post queries and anonymous actor helpers on [lib/simpl.ts](lib/simpl.ts).
@@ -97,6 +101,7 @@ Local social network with community moderation.
 - The app uses anonymous actors stored through a stable server-side cookie and persisted in PostgreSQL.
 - Posts and replies share the same `Post` model through a self-relation.
 - Reactions and moderation votes are normalized into separate tables instead of storing user arrays on the post record.
+- Global cleanup (2026-04-27): extracted `useGeoSort` hook from SortBar; moved geo math to `lib/geo.ts`; moved URL/feed-sort helpers to `lib/navigation.ts`; unified duplicate types in `lib/types.ts`; added root `loading.tsx` + `error.tsx`; added OWASP security headers in `next.config.ts`; coverage expanded to 118 tests.
 - Reaction and moderation clicks now update the card immediately, are stored chronologically in browser storage, and are replayed asynchronously to the backend.
 - Like/DisLike and Good/Bad now share the same second-click cancellation behavior.
 - Moderation now uses vote thresholds and ratios: below ten moderation votes the post stays in moderation while remaining homepage-visible; at ten or more votes, ratio rules decide delete, moderation exit, or moderation persistence.
@@ -147,6 +152,11 @@ Local social network with community moderation.
 - [app/components/geolocation/tabNavigation.ts](app/components/geolocation/tabNavigation.ts): pure Home-tab query builder that preserves/restores geolocation and sort context.
 - [app/components/geolocation/locationIndexedDb.ts](app/components/geolocation/locationIndexedDb.ts): low-level IndexedDB read/write helpers for location state.
 - [app/components/postActionQueue.ts](app/components/postActionQueue.ts): browser-side queue that persists action clicks and flushes them in chronological order.
+- [lib/geo.ts](lib/geo.ts): pure Haversine distance calculator — no I/O or framework dependencies.
+- [app/components/geolocation/useGeoSort.ts](app/components/geolocation/useGeoSort.ts): custom hook encapsulating permission-state listening, GPS acquisition, and router navigation for SortBar.
+- [app/loading.tsx](app/loading.tsx): root Next.js loading skeleton — shown by Suspense while async Server Components stream.
+- [app/error.tsx](app/error.tsx): root Next.js error boundary — catches RSC/Prisma errors and provides a retry control.
+- [next.config.ts](next.config.ts): OWASP security headers (X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, CSP) applied to every route.
 - [app/components/postActionState.ts](app/components/postActionState.ts): pure optimistic-state helpers (applyReactionLocally, applyModerationLocally, mergeServerState) used by PostActionControls.
 - [app/components/PostActionControls.tsx](app/components/PostActionControls.tsx): client-side action controls that update immediately and subscribe to backend acknowledgements from the browser queue.
 - [lib/simpl.ts](lib/simpl.ts): server-side query helpers and actor identity helpers. Re-exports types from lib/types.ts and evaluateModerationPolicy from lib/policy.ts for backward compatibility.
@@ -165,6 +175,9 @@ Run with `npm test` (single pass) or `npm run test:watch` (interactive).
 - [app/components/geolocation/\_\_tests\_\_/composerNavigation.test.ts](app/components/geolocation/__tests__/composerNavigation.test.ts): 4 tests — composer navigation query composition and coordinate-preservation behavior.
 - [app/components/geolocation/\_\_tests\_\_/backLinkNavigation.test.ts](app/components/geolocation/__tests__/backLinkNavigation.test.ts): 3 tests — back-link geolocation query restoration and stale activity-marker fallback.
 - [app/components/geolocation/\_\_tests\_\_/tabNavigation.test.ts](app/components/geolocation/__tests__/tabNavigation.test.ts): 3 tests — Home-tab geolocation restoration and query sanitization.
+- [app/components/\_\_tests\_\_/postActionQueue.test.ts](app/components/__tests__/postActionQueue.test.ts): 15 tests — `enqueueReaction`, `enqueueModerationVote`, flush success/failure/offline, subscriber notifications, chronological ordering.
+- [lib/\_\_tests\_\_/geo.test.ts](lib/__tests__/geo.test.ts): 7 tests — `calculateDistanceKm` null-guard, same-location, known coordinate pairs, symmetry.
+- [app/components/geolocation/\_\_tests\_\_/testHelpers.ts](app/components/geolocation/__tests__/testHelpers.ts): shared `installMockLocalStorage` utility used by all geolocation test files.
 
 1. Install dependencies with `npm install`.
 2. Ensure `DATABASE_URL` is set in `.env`.

@@ -10,6 +10,7 @@ import {
   PrismaClient,
   ReactionType,
 } from "@prisma/client";
+import { evaluateModerationPolicy } from "../lib/policy";
 
 const prisma = new PrismaClient();
 
@@ -23,53 +24,6 @@ type SeedPostInput = {
   rootId?: string;
   status?: PostStatus;
 };
-
-function evaluateModerationPolicy(keepVoteCount: number, removeVoteCount: number) {
-  const totalVotes = keepVoteCount + removeVoteCount;
-
-  if (totalVotes < 10) {
-    return {
-      inModeration: true,
-      shouldDelete: false,
-      status: PostStatus.UNDER_REVIEW,
-      visibleOnHomepage: true,
-    };
-  }
-
-  if (removeVoteCount >= 2 * keepVoteCount) {
-    return {
-      inModeration: false,
-      shouldDelete: true,
-      status: PostStatus.REMOVED,
-      visibleOnHomepage: false,
-    };
-  }
-
-  if (keepVoteCount >= 2 * removeVoteCount) {
-    return {
-      inModeration: false,
-      shouldDelete: false,
-      status: PostStatus.ACTIVE,
-      visibleOnHomepage: true,
-    };
-  }
-
-  if (removeVoteCount > keepVoteCount) {
-    return {
-      inModeration: true,
-      shouldDelete: false,
-      status: PostStatus.HIDDEN,
-      visibleOnHomepage: false,
-    };
-  }
-
-  return {
-    inModeration: true,
-    shouldDelete: false,
-    status: PostStatus.UNDER_REVIEW,
-    visibleOnHomepage: true,
-  };
-}
 
 async function createPost(input: SeedPostInput) {
   return prisma.post.create({

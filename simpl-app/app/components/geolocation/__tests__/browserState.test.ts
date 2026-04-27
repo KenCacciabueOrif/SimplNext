@@ -7,36 +7,7 @@ import {
 } from "@/app/components/geolocation/browserState";
 import { SORT_PREFERENCES_STORAGE_KEY } from "@/app/components/geolocation/constants";
 import type { SortPreferencesSnapshot } from "@/app/components/geolocation/types";
-
-function installMockLocalStorage() {
-  const store = new Map<string, string>();
-
-  const localStorageMock = {
-    get length() {
-      return store.size;
-    },
-    clear() {
-      store.clear();
-    },
-    getItem(key: string) {
-      return store.has(key) ? store.get(key)! : null;
-    },
-    key(index: number) {
-      return [...store.keys()][index] ?? null;
-    },
-    removeItem(key: string) {
-      store.delete(key);
-    },
-    setItem(key: string, value: string) {
-      store.set(key, value);
-    },
-  } satisfies Storage;
-
-  Object.defineProperty(globalThis, "localStorage", {
-    configurable: true,
-    value: localStorageMock,
-  });
-}
+import { installMockLocalStorage } from "@/app/components/geolocation/__tests__/testHelpers";
 
 describe("browserState", () => {
   beforeEach(() => {

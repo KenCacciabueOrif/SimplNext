@@ -17,17 +17,9 @@ import prisma from "@/lib/prisma";
 import { ensureAnonymousActor } from "@/lib/simpl";
 import { evaluateModerationPolicy } from "@/lib/policy";
 import { buildNavigationQuery, withNavigationQuery } from "@/lib/navigation";
+import type { PostActionState } from "@/lib/types";
 
-export type PostActionState = {
-  likeCount: number;
-  dislikeCount: number;
-  keepVoteCount: number;
-  removeVoteCount: number;
-  reportCount: number;
-  status: PostStatus;
-  viewerReaction: ReactionType | null;
-  viewerModerationDecision: ModerationDecision | null;
-};
+export type { PostActionState };
 
 type PrismaTransactionClient = Parameters<
   Parameters<typeof prisma.$transaction>[0]

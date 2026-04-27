@@ -6,7 +6,6 @@
 
 import {
   ensureDistanceModeFromPreferences,
-  isLocationMarkedActive,
   readSortPreferences,
   readStoredLocationSnapshot,
 } from "@/app/components/geolocation/browserState";
@@ -33,11 +32,6 @@ export function ensureGeoQuery(pathname: string, params: URLSearchParams) {
     params.set("geo", "on");
     ensureDistanceModeFromPreferences(params, preferences);
 
-    const query = params.toString();
-    return query ? `${pathname}?${query}` : pathname;
-  }
-
-  if (!isLocationMarkedActive()) {
     const query = params.toString();
     return query ? `${pathname}?${query}` : pathname;
   }

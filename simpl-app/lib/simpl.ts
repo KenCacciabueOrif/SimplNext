@@ -1,7 +1,9 @@
 /**
  * Last updated: 2026-04-27
- * Changes: Fixed ReactionType import to use inline type-import to satisfy consistent-type-imports ESLint rule.
- * Purpose: Server-side data access (Prisma queries), anonymous actor management, and sort-state resolution for the Simpl application.
+ * Changes: Moved parseViewerLocation, resolveFeedSortState, DEFAULT_FEED_SORT_STATE to
+ *          lib/navigation.ts (URL utilities); moved toRadians + calculateDistanceKm to
+ *          lib/geo.ts (pure math). This file is now a pure data-access module.
+ * Purpose: Server-side Prisma queries and anonymous actor management for the Simpl application.
  */
 
 import { cookies } from "next/headers";
@@ -9,60 +11,28 @@ import { ModerationDecision, PostStatus, type ReactionType } from "@prisma/clien
 import prisma from "@/lib/prisma";
 import { sortPostsByAggregateRanks } from "@/lib/sorting";
 import { evaluateModerationPolicy } from "@/lib/policy";
+import { calculateDistanceKm } from "@/lib/geo";
+import {
+  DEFAULT_FEED_SORT_STATE,
+  parseViewerLocation,
+  resolveFeedSortState,
+} from "@/lib/navigation";
 import type { FeedSortState, ModerationPolicyOutcome, PostListItem, SortMode, ViewerLocation } from "@/lib/types";
 
-// Re-export domain types so existing consumers keep working without import changes.
+// Re-export domain types and navigation helpers so existing consumers keep working
+// without import changes.  New code should import directly from the canonical modules.
 export type { FeedSortState, ModerationPolicyOutcome, PostListItem, SortMode, ViewerLocation };
-export { evaluateModerationPolicy };
+export { DEFAULT_FEED_SORT_STATE, evaluateModerationPolicy, parseViewerLocation, resolveFeedSortState };
 
 const ACTOR_COOKIE = "simpl-actor-key";
-
-export const DEFAULT_FEED_SORT_STATE: FeedSortState = {
-  popularity: "down",
-  date: "down",
-  distance: "down",
-};
-
-// ---------------------------------------------------------------------------
-// Internal query record type — matches the Prisma include shape used in all
-// post queries. Cast via `as unknown as PostQueryRecord[]` at query boundaries.
-// ---------------------------------------------------------------------------
-
-type PostQueryRecord = Parameters<typeof toPostListItem>[0];
-
-// ---------------------------------------------------------------------------
-// Distance math
-// ---------------------------------------------------------------------------
-
-function toRadians(value: number) {
-  return (value * Math.PI) / 180;
-}
-
-function calculateDistanceKm(
-  viewerLocation: ViewerLocation,
-  post: Pick<PostListItem, "latitude" | "longitude">,
-) {
-  if (post.latitude === null || post.longitude === null) {
-    return null;
-  }
-
-  const earthRadiusKm = 6371;
-  const latitudeDelta = toRadians(post.latitude - viewerLocation.latitude);
-  const longitudeDelta = toRadians(post.longitude - viewerLocation.longitude);
-  const viewerLatitude = toRadians(viewerLocation.latitude);
-  const postLatitude = toRadians(post.latitude);
-
-  const haversine =
-    Math.sin(latitudeDelta / 2) * Math.sin(latitudeDelta / 2) +
-    Math.cos(viewerLatitude) * Math.cos(postLatitude) *
-      Math.sin(longitudeDelta / 2) * Math.sin(longitudeDelta / 2);
-
-  return 2 * earthRadiusKm * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
-}
 
 // ---------------------------------------------------------------------------
 // Internal post transformer
 // ---------------------------------------------------------------------------
+
+// Convenience alias for the Prisma include shape used in all post queries.
+// Cast via `as unknown as PostQueryRecord[]` at query site boundaries.
+type PostQueryRecord = Parameters<typeof toPostListItem>[0];
 
 function toPostListItem(post: {
   id: string;
@@ -105,80 +75,6 @@ function toPostListItem(post: {
     viewerModerationDecision: post.moderationVotes[0]?.decision ?? null,
     viewerReaction: post.reactions[0]?.type ?? null,
   };
-}
-
-export function parseViewerLocation(latitude?: string, longitude?: string): ViewerLocation | null {
-  if (!latitude || !longitude) {
-    return null;
-  }
-
-  const parsedLatitude = Number(latitude);
-  const parsedLongitude = Number(longitude);
-
-  if (!Number.isFinite(parsedLatitude) || !Number.isFinite(parsedLongitude)) {
-    return null;
-  }
-
-  if (parsedLatitude < -90 || parsedLatitude > 90 || parsedLongitude < -180 || parsedLongitude > 180) {
-    return null;
-  }
-
-  return { latitude: parsedLatitude, longitude: parsedLongitude };
-}
-
-function parseSortMode(input?: string): SortMode {
-  if (input === "down" || input === "up" || input === "off") {
-    return input;
-  }
-
-  return "off";
-}
-
-export function resolveFeedSortState(input: {
-  popularity?: string;
-  date?: string;
-  distance?: string;
-  sort?: string;
-}, viewerLocation?: ViewerLocation | null): FeedSortState {
-  const sortState: FeedSortState = {
-    popularity: parseSortMode(input.popularity),
-    date: parseSortMode(input.date),
-    distance: parseSortMode(input.distance),
-  };
-
-  // Backward compatibility with the previous single-sort query parameter.
-  if (!input.popularity && !input.date && !input.distance) {
-    if (input.sort === "top") {
-      sortState.popularity = "down";
-      sortState.date = "off";
-      sortState.distance = "off";
-    } else if (input.sort === "distance") {
-      sortState.popularity = "off";
-      sortState.date = "off";
-      sortState.distance = "down";
-    } else if (!input.sort) {
-      // First load with no params at all: apply defaults, then reconcile with
-      // viewer location availability below.
-      sortState.popularity = DEFAULT_FEED_SORT_STATE.popularity;
-      sortState.date = DEFAULT_FEED_SORT_STATE.date;
-      sortState.distance = DEFAULT_FEED_SORT_STATE.distance;
-    } else {
-      sortState.popularity = "off";
-      sortState.date = "down";
-      sortState.distance = "off";
-    }
-  }
-
-  // Distance requires a known viewer location; drop it silently if unavailable.
-  if (!viewerLocation) {
-    sortState.distance = "off";
-  } else if (!input.distance && sortState.distance === "off") {
-    // Keep explicit distance=off, but when the parameter is absent and GPS is
-    // available, apply the default distance mode automatically.
-    sortState.distance = DEFAULT_FEED_SORT_STATE.distance;
-  }
-
-  return sortState;
 }
 
 export async function getViewerActor() {

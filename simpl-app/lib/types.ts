@@ -1,6 +1,6 @@
 /**
- * Last updated: 2026-04-24
- * Changes: Centralized all domain types previously scattered across lib/simpl.ts, app/actions.ts, and geolocation component types.
+ * Last updated: 2026-04-27
+ * Changes: Added PostActionState type (moved from app/actions.ts — it is a domain type, not an action concern).
  * Purpose: Single source of truth for domain-level TypeScript types shared across server and client modules.
  */
 
@@ -63,4 +63,24 @@ export type ModerationPolicyOutcome = {
   inModeration: boolean;
   visibleOnHomepage: boolean;
   status: PostStatus;
+};
+
+// ---------------------------------------------------------------------------
+// Post actions
+// ---------------------------------------------------------------------------
+
+/**
+ * The canonical server-side snapshot of viewer-specific counters and decisions
+ * for a single post.  Returned by both toggleReactionAction and
+ * castModerationVoteAction so the client can reconcile optimistic state.
+ */
+export type PostActionState = {
+  likeCount: number;
+  dislikeCount: number;
+  keepVoteCount: number;
+  removeVoteCount: number;
+  reportCount: number;
+  status: PostStatus;
+  viewerReaction: ReactionType | null;
+  viewerModerationDecision: ModerationDecision | null;
 };

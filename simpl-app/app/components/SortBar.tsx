@@ -2,37 +2,18 @@
 
 /**
  * Last updated: 2026-04-27
- * Changes: Extracted duplicated navigator.geolocation.getCurrentPosition call into a module-level requestCurrentPosition helper to eliminate repeated options objects.
- * Purpose: Render the sort controls in the same structural slot as the original Simpl interface.
+ * Changes: Extracted all geolocation + sort logic into useGeoSort hook
+ *          (app/components/geolocation/useGeoSort.ts). SortBar is now a
+ *          pure presentation component that delegates state to the hook.
+ * Purpose: Render the sort controls in the same structural slot as the
+ *          original Simpl interface.
  */
 
-import { startTransition, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import type { FeedSortState, SortMode, ViewerLocation } from "@/lib/simpl";
-import {
-  PERMISSION_STATE_EVENT_NAME,
-  SORT_PREFERENCES_STORAGE_KEY,
-} from "@/app/components/geolocation/constants";
-import type { PermissionStateValue } from "@/app/components/geolocation/types";
+import type { FeedSortState, SortMode, ViewerLocation } from "@/lib/types";
+import { useGeoSort } from "@/app/components/geolocation/useGeoSort";
 
 // ---------------------------------------------------------------------------
-// Geolocation helper
-// ---------------------------------------------------------------------------
-
-function requestCurrentPosition(
-  onSuccess: (lat: number, lng: number) => void,
-  onError: (error: GeolocationPositionError) => void,
-  options: PositionOptions,
-) {
-  navigator.geolocation.getCurrentPosition(
-    (position) => onSuccess(position.coords.latitude, position.coords.longitude),
-    onError,
-    options,
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Sort helpers
+// Types
 // ---------------------------------------------------------------------------
 
 type SortBarProps = {
@@ -41,146 +22,23 @@ type SortBarProps = {
   viewerLocation: ViewerLocation | null;
 };
 
-function cycleSortMode(mode: SortMode): SortMode {
-  if (mode === "down") {
-    return "up";
-  }
-
-  if (mode === "up") {
-    return "off";
-  }
-
-  return "down";
-}
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 function getModeIndicator(mode: SortMode) {
-  if (mode === "down") {
-    return "↓";
-  }
-
-  if (mode === "up") {
-    return "↑";
-  }
-
+  if (mode === "down") return "↓";
+  if (mode === "up") return "↑";
   return "=";
 }
 
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
 export default function SortBar({ pathname, sortState, viewerLocation }: SortBarProps) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [distanceError, setDistanceError] = useState<string | null>(null);
-  const [isLocating, setIsLocating] = useState(false);
-  const [permissionState, setPermissionState] = useState<PermissionStateValue>("unknown");
-
-  useEffect(() => {
-    function handlePermissionStateUpdate(event: Event) {
-      const customEvent = event as CustomEvent<PermissionStateValue>;
-      setPermissionState(customEvent.detail ?? "unknown");
-    }
-
-    window.addEventListener(PERMISSION_STATE_EVENT_NAME, handlePermissionStateUpdate);
-
-    return () => {
-      window.removeEventListener(PERMISSION_STATE_EVENT_NAME, handlePermissionStateUpdate);
-    };
-  }, []);
-
-  function requestLocationFromUserAction() {
-    if (!("geolocation" in navigator)) {
-      setDistanceError("La géolocalisation n'est pas disponible dans ce navigateur.");
-      return;
-    }
-
-    setDistanceError(null);
-    setIsLocating(true);
-
-    requestCurrentPosition(
-      (lat, lng) => {
-        setIsLocating(false);
-
-        const nextSortState: FeedSortState = {
-          ...sortState,
-          distance: sortState.distance === "off" ? "down" : sortState.distance,
-        };
-
-        navigateToSortState(nextSortState, lat, lng);
-      },
-      (error) => {
-        setIsLocating(false);
-
-        if (error.code === error.PERMISSION_DENIED) {
-          setDistanceError("Géolocalisation refusée. Active-la dans les paramètres du navigateur.");
-          return;
-        }
-
-        setDistanceError("Autorisation en attente ou position indisponible. Réessaie.");
-      },
-      { enableHighAccuracy: true, maximumAge: 10_000, timeout: 12_000 },
-    );
-  }
-
-  function navigateToSortState(nextSortState: FeedSortState, latitude?: number, longitude?: number) {
-    const nextParams = new URLSearchParams(searchParams.toString());
-    nextParams.delete("sort");
-    nextParams.set("popularity", nextSortState.popularity);
-    nextParams.set("date", nextSortState.date);
-    nextParams.set("distance", nextSortState.distance);
-
-    if (typeof latitude === "number" && typeof longitude === "number") {
-      nextParams.set("lat", latitude.toFixed(6));
-      nextParams.set("lng", longitude.toFixed(6));
-    }
-
-    localStorage.setItem(SORT_PREFERENCES_STORAGE_KEY, JSON.stringify(nextSortState));
-
-    startTransition(() => {
-      router.push(`${pathname}?${nextParams.toString()}`);
-    });
-  }
-
-  function handleToggle(filter: keyof FeedSortState) {
-    setDistanceError(null);
-    const nextMode = cycleSortMode(sortState[filter]);
-    const nextSortState: FeedSortState = {
-      ...sortState,
-      [filter]: nextMode,
-    };
-
-    if (filter !== "distance" || nextMode === "off") {
-      navigateToSortState(nextSortState);
-      return;
-    }
-
-    if (viewerLocation) {
-      navigateToSortState(nextSortState, viewerLocation.latitude, viewerLocation.longitude);
-      return;
-    }
-
-    if (!("geolocation" in navigator)) {
-      setDistanceError("La géolocalisation n'est pas disponible dans ce navigateur.");
-      return;
-    }
-
-    setIsLocating(true);
-
-    requestCurrentPosition(
-      (lat, lng) => {
-        setIsLocating(false);
-        navigateToSortState(nextSortState, lat, lng);
-      },
-      (error) => {
-        setIsLocating(false);
-
-        if (error.code === error.PERMISSION_DENIED) {
-          setDistanceError("Autorise la géolocalisation pour activer le tri par distance.");
-          return;
-        }
-
-        setDistanceError("Impossible de récupérer la position actuelle.");
-      },
-      { enableHighAccuracy: true, maximumAge: 60_000, timeout: 10_000 },
-    );
-  }
+  const { distanceError, isLocating, permissionState, handleToggle, requestLocationFromUserAction } =
+    useGeoSort({ pathname, sortState, viewerLocation });
 
   return (
     <>
@@ -216,7 +74,12 @@ export default function SortBar({ pathname, sortState, viewerLocation }: SortBar
               ? "Géolocalisation refusée. Tu peux relancer la demande après avoir ajusté les paramètres navigateur."
               : "Géolocalisation non active. Demande l&apos;autorisation pour activer le tri par distance."}
           </p>
-          <button type="button" className="button" onClick={requestLocationFromUserAction} disabled={isLocating}>
+          <button
+            type="button"
+            className="button"
+            onClick={requestLocationFromUserAction}
+            disabled={isLocating}
+          >
             {isLocating ? "Demande GPS..." : "Activer la géolocalisation"}
           </button>
         </div>

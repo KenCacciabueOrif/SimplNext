@@ -1,3 +1,9 @@
+/**
+ * Last updated: 2026-04-27
+ * Purpose: Next.js Web App Manifest route — declares the PWA identity, icons,
+ *          display mode, and theme colours for the Simpl. application.
+ */
+
 import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
