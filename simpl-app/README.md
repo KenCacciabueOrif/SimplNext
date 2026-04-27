@@ -1,4 +1,6 @@
 > Last updated: 2026-04-27
+> Changes: Deferred list reordering after Like/DisLike and Good/Bad: clicked cards still update instantly, but feed/thread/moderation ordering now refreshes only after explicit reload or sort navigation.
+> Last updated: 2026-04-27
 > Changes: Fixed Home tab behavior to preserve/restore active geolocation context (distance + coordinates) from thread/comment pages, and added tabNavigation regression tests.
 > Last updated: 2026-04-27
 > Changes: Added regression-testable pure geolocation navigation helpers (`composerNavigation.ts`, `backLinkNavigation.ts`) and expanded the Vitest suite to 93 tests across 7 files, including publish/back-return distance-context scenarios.
@@ -103,6 +105,7 @@ Local social network with community moderation.
 - Reactions and moderation votes are normalized into separate tables instead of storing user arrays on the post record.
 - Global cleanup (2026-04-27): extracted `useGeoSort` hook from SortBar; moved geo math to `lib/geo.ts`; moved URL/feed-sort helpers to `lib/navigation.ts`; unified duplicate types in `lib/types.ts`; added root `loading.tsx` + `error.tsx`; added OWASP security headers in `next.config.ts`; coverage expanded to 118 tests.
 - Reaction and moderation clicks now update the card immediately, are stored chronologically in browser storage, and are replayed asynchronously to the backend.
+- Feed, thread-reply, and moderation lists no longer rerender immediately after reaction or moderation votes, so viewport order stays stable until the user reloads or changes sort settings.
 - Like/DisLike and Good/Bad now share the same second-click cancellation behavior.
 - Moderation now uses vote thresholds and ratios: below ten moderation votes the post stays in moderation while remaining homepage-visible; at ten or more votes, ratio rules decide delete, moderation exit, or moderation persistence.
 - Reporters are filtered out from homepage visibility while their REMOVE vote remains active on a post.
@@ -131,7 +134,7 @@ Local social network with community moderation.
 
 ## Important Code Comments
 
-- [app/actions.ts](app/actions.ts): server-side mutation entry point that returns canonical action state for fast client reconciliation. Navigation query building is delegated to lib/navigation.ts; moderation policy to lib/policy.ts.
+- [app/actions.ts](app/actions.ts): server-side mutation entry point that returns canonical action state for fast client reconciliation. Navigation query building is delegated to lib/navigation.ts; moderation policy to lib/policy.ts; vote actions no longer force immediate route revalidation, so list order stays stable until explicit navigation.
 - [lib/simpl.ts](lib/simpl.ts): server-side Prisma queries, anonymous actor management, and sort-state resolution. Pure algorithms and types have been extracted to lib/sorting.ts, lib/policy.ts, lib/types.ts.
 - [lib/types.ts](lib/types.ts): canonical domain types shared across all server and client modules.
 - [lib/sorting.ts](lib/sorting.ts): pure tri-state ranking engine — individual comparators and aggregate normalized rank averaging.

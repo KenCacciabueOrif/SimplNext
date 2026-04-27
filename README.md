@@ -1,4 +1,6 @@
 > Last updated: 2026-04-27
+> Changes: Documented the vote-refresh change in `simpl-app`: Like/DisLike and Good/Bad keep instant local card feedback, but feed/thread/moderation list reordering now waits for an explicit reload or sort change.
+> Last updated: 2026-04-27
 > Changes: Documented the Home-tab geolocation-context persistence fix in `simpl-app`, so returning Home from thread/comment pages keeps Distance and coordinates when GPS is active.
 > Last updated: 2026-04-27
 > Changes: Documented the geolocation navigation-context fix delivered in `simpl-app` to prevent Distance from falling back to `=` after publish/thread return flows when permission is granted.
@@ -28,6 +30,7 @@ This folder contains the active rebuild of Simpl with Next.js.
 - Feed, thread, post creation, and moderation pages are wired in the Next.js app.
 - The shared layout and page composition are now being pushed closer to the original black-and-white Simpl interface.
 - Reaction and moderation action buttons now update instantly, persist in a local browser queue, and sync asynchronously to the backend.
+- Vote actions now keep their instant per-card feedback without forcing an immediate server list refresh, so feed, thread, and moderation ordering stay stable until reload or sort-button navigation.
 - Moderation now follows vote-threshold and ratio rules, with hard-delete outcomes and reporter-specific homepage filtering while REMOVE is active.
 - Global cleanup implementation has started in incremental mode, with the first pass focused on duplication reduction and dead-code removal before larger feature-folder refactors.
 

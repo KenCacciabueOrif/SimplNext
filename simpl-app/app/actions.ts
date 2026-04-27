@@ -1,6 +1,6 @@
 /**
- * Last updated: 2026-04-24
- * Changes: Preserved validated navigation query context (sort + geolocation params) across post/reply creation redirects, while keeping canonical post action state for reaction/moderation mutations. Redirect context now defaults distance mode to down when GPS coordinates are present and no explicit distance mode is submitted.
+ * Last updated: 2026-04-27
+ * Changes: Kept optimistic reaction/moderation card feedback instant while deferring list reordering until explicit reload or sort navigation by removing vote-triggered route revalidation. Post/reply creation still revalidates the relevant pages.
  * Purpose: Centralize write operations for the Simpl application.
  */
 
@@ -36,11 +36,6 @@ function parseOptionalFloat(value: FormDataEntryValue | null) {
 
   const parsed = Number.parseFloat(value);
   return Number.isFinite(parsed) ? parsed : null;
-}
-
-function getThreadId(formData: FormData, fallbackPostId: string) {
-  const threadId = normalizeText(formData.get("threadId"));
-  return threadId || fallbackPostId;
 }
 
 async function syncPostState(
@@ -175,13 +170,6 @@ async function getViewerPostActionState(
   };
 }
 
-function revalidatePostSurfaces(postId: string, threadId: string) {
-  revalidatePath("/");
-  revalidatePath("/moderation");
-  revalidatePath(`/posts/${postId}`);
-  revalidatePath(`/posts/${threadId}`);
-}
-
 export async function createPostAction(formData: FormData) {
   const actor = await ensureAnonymousActor();
   const title = normalizeText(formData.get("title"));
@@ -238,7 +226,6 @@ export async function toggleReactionAction(
 ): Promise<PostActionState> {
   const actor = await ensureAnonymousActor();
   const postId = normalizeText(formData.get("postId"));
-  const threadId = getThreadId(formData, postId);
   const reactionType = normalizeText(formData.get("reactionType"));
 
   if (!postId || !["LIKE", "DISLIKE"].includes(reactionType)) {
@@ -292,8 +279,6 @@ export async function toggleReactionAction(
     } satisfies PostActionState;
   });
 
-  revalidatePostSurfaces(postId, threadId);
-
   return snapshot;
 }
 
@@ -302,7 +287,6 @@ export async function castModerationVoteAction(
 ): Promise<PostActionState> {
   const actor = await ensureAnonymousActor();
   const postId = normalizeText(formData.get("postId"));
-  const threadId = getThreadId(formData, postId);
   const decision = normalizeText(formData.get("decision"));
 
   if (!postId || !["KEEP", "REMOVE"].includes(decision)) {
@@ -354,8 +338,6 @@ export async function castModerationVoteAction(
       ...viewerState,
     } satisfies PostActionState;
   });
-
-  revalidatePostSurfaces(postId, threadId);
 
   return snapshot;
 }
