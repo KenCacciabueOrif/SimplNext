@@ -1,4 +1,6 @@
 ﻿> Last updated: 2026-04-27
+> Changes: Started next cleanup phase by removing deprecated `vite-tsconfig-paths` usage in Vitest config and switching to native `resolve.tsconfigPaths` support to eliminate test-run warning noise.
+> Last updated: 2026-04-27
 > Changes: Phase 1 — reorganized `app/components` by domain (`layout`, `post`, `composer`, `sort`, `geolocation`) and updated imports/tests references accordingly.
 > Last updated: 2026-04-27
 > Changes: Started global-cleanup implementation phase 0 with enforceable quality gates: Husky pre-commit checks, lint-staged, staged related Vitest execution, CI PR workflow, and a 200-line file-length guard with temporary baseline exceptions.
