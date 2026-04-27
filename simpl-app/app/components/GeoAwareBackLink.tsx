@@ -1,6 +1,6 @@
 /**
- * Last updated: 2026-04-24
- * Changes: Reused shared geolocation browser-state helpers to remove duplicated sort/location parsing logic.
+ * Last updated: 2026-04-27
+ * Changes: Hardened back-link geo restoration by reusing the persisted location snapshot even when the activity marker is temporarily stale.
  * Purpose: Keep feed/thread back navigation aligned with active distance sorting after returning from comments.
  */
 
@@ -9,50 +9,13 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import {
-  ensureDistanceModeFromPreferences,
-  isLocationMarkedActive,
-  readSortPreferences,
-  readStoredLocationSnapshot,
-} from "@/app/components/geolocation/browserState";
+import { ensureGeoQuery } from "@/app/components/geolocation/backLinkNavigation";
 
 type GeoAwareBackLinkProps = {
   fallbackHref: string;
   className?: string;
   children: React.ReactNode;
 };
-
-function ensureGeoQuery(pathname: string, params: URLSearchParams) {
-  const latitude = params.get("lat");
-  const longitude = params.get("lng");
-
-  const preferences = readSortPreferences();
-
-  if (latitude && longitude) {
-    ensureDistanceModeFromPreferences(params, preferences);
-
-    params.set("geo", "on");
-    const query = params.toString();
-    return query ? `${pathname}?${query}` : pathname;
-  }
-
-  if (!isLocationMarkedActive()) {
-    const query = params.toString();
-    return query ? `${pathname}?${query}` : pathname;
-  }
-
-  const storedSnapshot = readStoredLocationSnapshot();
-
-  if (storedSnapshot?.active && storedSnapshot.latitude !== null && storedSnapshot.longitude !== null) {
-    params.set("lat", storedSnapshot.latitude.toFixed(6));
-    params.set("lng", storedSnapshot.longitude.toFixed(6));
-    params.set("geo", "on");
-    ensureDistanceModeFromPreferences(params, preferences);
-  }
-
-  const query = params.toString();
-  return query ? `${pathname}?${query}` : pathname;
-}
 
 export default function GeoAwareBackLink({ fallbackHref, className, children }: GeoAwareBackLinkProps) {
   const searchParams = useSearchParams();

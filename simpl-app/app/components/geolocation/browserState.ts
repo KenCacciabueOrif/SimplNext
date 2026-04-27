@@ -1,6 +1,6 @@
 /**
- * Last updated: 2026-04-24
- * Changes: Added shared browser-state helpers for geolocation snapshots, sort preference parsing, and distance mode normalization.
+ * Last updated: 2026-04-27
+ * Changes: Hardened helpers for SSR by guarding localStorage access when window is unavailable.
  * Purpose: Remove duplicated localStorage/query parsing logic across geolocation-aware client components.
  */
 
@@ -14,6 +14,14 @@ import type {
   SortPreferencesSnapshot,
   ViewerLocationSnapshot,
 } from "@/app/components/geolocation/types";
+
+function safeGetLocalStorageItem(key: string) {
+  if (typeof globalThis.localStorage === "undefined") {
+    return null;
+  }
+
+  return globalThis.localStorage.getItem(key);
+}
 
 export function normalizeSortMode(value: string | null): SortMode | null {
   if (value === "down" || value === "up" || value === "off") {
@@ -52,11 +60,11 @@ export function parseLocationSnapshot(rawValue: string | null): ViewerLocationSn
 }
 
 export function readStoredLocationSnapshot() {
-  return parseLocationSnapshot(localStorage.getItem(LOCATION_STORAGE_KEY));
+  return parseLocationSnapshot(safeGetLocalStorageItem(LOCATION_STORAGE_KEY));
 }
 
 export function readSortPreferences() {
-  const rawValue = localStorage.getItem(SORT_PREFERENCES_STORAGE_KEY);
+  const rawValue = safeGetLocalStorageItem(SORT_PREFERENCES_STORAGE_KEY);
 
   if (!rawValue) {
     return null;
@@ -79,7 +87,7 @@ export function readSortPreferences() {
 }
 
 export function isLocationMarkedActive() {
-  return localStorage.getItem(LOCATION_ACTIVITY_STORAGE_KEY) === "on";
+  return safeGetLocalStorageItem(LOCATION_ACTIVITY_STORAGE_KEY) === "on";
 }
 
 export function ensureDistanceModeFromPreferences(

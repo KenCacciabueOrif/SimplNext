@@ -1,10 +1,11 @@
 /**
- * Last updated: 2026-04-22
- * Changes: Added a global geolocation manager bootstrap to request permissions and keep viewer location synchronized during app usage.
+ * Last updated: 2026-04-27
+ * Changes: Wrapped AppTabs in Suspense because tabs now read search params to preserve geolocation context in Home navigation.
  * Purpose: Provide shared layout metadata and navigation for the Simpl application.
  */
 
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import AppTabs from "@/app/components/AppTabs";
 import GeoLocationManager from "@/app/components/GeoLocationManager";
@@ -41,7 +42,9 @@ export default function RootLayout({
             <h1>Simpl.</h1>
           </header>
 
-          <AppTabs />
+          <Suspense fallback={<nav className="legacy-tabs" aria-label="Primary" />}>
+            <AppTabs />
+          </Suspense>
 
           <main className="app-main">{children}</main>
         </div>

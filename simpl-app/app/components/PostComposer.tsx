@@ -1,6 +1,6 @@
 /**
- * Last updated: 2026-04-24
- * Changes: Reused shared geolocation browser-state parsers to remove duplicated snapshot and sort-mode normalization logic.
+ * Last updated: 2026-04-27
+ * Changes: Preserved existing query coordinates in navigation context when the live snapshot is temporarily unavailable, preventing distance-mode regressions after publish/back navigation.
  * Purpose: Render the create form shared by the new post page and thread reply flow.
  */
 
@@ -11,9 +11,9 @@ import { useSearchParams } from "next/navigation";
 
 import { createPostAction } from "@/app/actions";
 import {
-  normalizeSortMode,
   parseLocationSnapshot,
 } from "@/app/components/geolocation/browserState";
+import { buildComposerNavigationQuery } from "@/app/components/geolocation/composerNavigation";
 import { LOCATION_EVENT_NAME, LOCATION_STORAGE_KEY } from "@/app/components/geolocation/constants";
 import { readLocationSnapshotFromIndexedDb } from "@/app/components/geolocation/locationIndexedDb";
 import type { ViewerLocationSnapshot } from "@/app/components/geolocation/types";
@@ -80,50 +80,7 @@ export default function PostComposer({
   }, [locationSnapshot]);
 
   const navigationQueryValue = useMemo(() => {
-    const merged = new URLSearchParams(searchParams.toString());
-
-    const popularity = normalizeSortMode(merged.get("popularity"));
-    const date = normalizeSortMode(merged.get("date"));
-    const distance = normalizeSortMode(merged.get("distance"));
-
-    if (popularity) {
-      merged.set("popularity", popularity);
-    } else {
-      merged.delete("popularity");
-    }
-
-    if (date) {
-      merged.set("date", date);
-    } else {
-      merged.delete("date");
-    }
-
-    if (locationSnapshot?.active && locationSnapshot.latitude !== null && locationSnapshot.longitude !== null) {
-      merged.set("lat", locationSnapshot.latitude.toFixed(6));
-      merged.set("lng", locationSnapshot.longitude.toFixed(6));
-      merged.set("geo", "on");
-
-      if (!distance) {
-        merged.set("distance", "down");
-      }
-    } else {
-      merged.delete("lat");
-      merged.delete("lng");
-
-      if (merged.get("geo") !== "on") {
-        merged.set("geo", "off");
-      }
-    }
-
-    const normalizedDistance = normalizeSortMode(merged.get("distance"));
-
-    if (normalizedDistance) {
-      merged.set("distance", normalizedDistance);
-    } else {
-      merged.delete("distance");
-    }
-
-    return merged.toString();
+    return buildComposerNavigationQuery(searchParams.toString(), locationSnapshot);
   }, [locationSnapshot, searchParams]);
 
   return (

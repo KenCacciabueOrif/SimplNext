@@ -1,4 +1,10 @@
 > Last updated: 2026-04-27
+> Changes: Fixed Home tab behavior to preserve/restore active geolocation context (distance + coordinates) from thread/comment pages, and added tabNavigation regression tests.
+> Last updated: 2026-04-27
+> Changes: Added regression-testable pure geolocation navigation helpers (`composerNavigation.ts`, `backLinkNavigation.ts`) and expanded the Vitest suite to 93 tests across 7 files, including publish/back-return distance-context scenarios.
+> Last updated: 2026-04-27
+> Changes: Fixed geolocation navigation-context loss that could reset Distance to `off` after publish/thread navigation; PostComposer now preserves existing query coordinates when live snapshot loading is pending, GeoAwareBackLink now restores coordinates from persisted snapshot even if activity marker is stale, and added browserState helper tests for distance-mode recovery.
+> Last updated: 2026-04-27
 > Changes: Phase 4 — Lint enforcement + test suite: added @typescript-eslint/no-explicit-any and consistent-type-imports ESLint rules; installed Vitest with path-alias support; 69 tests across 4 files covering lib/policy.ts, lib/navigation.ts, lib/sorting.ts, and app/components/postActionState.ts (all pure functions).
 > Last updated: 2026-04-27
 > Changes: Phase 3 — UI decomposition: extracted pure optimistic-state helpers (applyReactionLocally, applyModerationLocally, mergeServerState) from PostActionControls into postActionState.ts; collapsed duplicated permission handler in GeoLocationManager into a single applyPermissionState useCallback; extracted requestCurrentPosition helper in SortBar to eliminate duplicated getCurrentPosition options blocks.
@@ -72,6 +78,9 @@ Local social network with community moderation.
 - Geolocation feed refresher on [app/components/geolocation/GeoFeedRefresher.tsx](app/components/geolocation/GeoFeedRefresher.tsx).
 - Geolocation IndexedDB helpers on [app/components/geolocation/locationIndexedDb.ts](app/components/geolocation/locationIndexedDb.ts).
 - Geolocation browser-state helpers on [app/components/geolocation/browserState.ts](app/components/geolocation/browserState.ts).
+- Composer navigation-query helper on [app/components/geolocation/composerNavigation.ts](app/components/geolocation/composerNavigation.ts).
+- Geo-aware back-link query helper on [app/components/geolocation/backLinkNavigation.ts](app/components/geolocation/backLinkNavigation.ts).
+- Home-tab navigation helper on [app/components/geolocation/tabNavigation.ts](app/components/geolocation/tabNavigation.ts).
 - Local-first Like/DisLike/Good/Bad controls on [app/components/PostActionControls.tsx](app/components/PostActionControls.tsx).
 - Pure optimistic-state helpers for post actions on [app/components/postActionState.ts](app/components/postActionState.ts).
 - Shared post queries and anonymous actor helpers on [lib/simpl.ts](lib/simpl.ts).
@@ -103,6 +112,9 @@ Local social network with community moderation.
 - Geolocation now listens to browser permission-state changes and auto-retries location acquisition when access is granted after an initial deny/prompt flow.
 - New posts and thread replies no longer ask for manual latitude/longitude fields and instead automatically submit live viewer coordinates when location is active.
 - Post and reply creation now preserve the active navigation context (Popularity/Date/Distance + coordinates) across redirects so distance labels do not disappear after publishing.
+- Post/reply composer now keeps existing URL coordinates during temporary snapshot-loading gaps so submit-time redirects do not accidentally drop geolocation context and reset Distance to `=`.
+- Geo-aware back navigation now restores coordinates from the persisted location snapshot even if the activity marker is temporarily stale.
+- Home-tab navigation now restores geolocation context with the same rules as back links, so clicking Home from thread/comment pages does not reset Distance to `=` while GPS is active.
 - If geolocation is disabled, denied, or unavailable, coordinates are omitted by default and distance sorting gracefully falls back to non-distance ordering.
 - The main thread post still scrolls with replies in the same pane.
 - Reported comments are removed from normal thread reply lists and remain accessible from moderation, where opening a comment still provides Back to parent context navigation.
@@ -130,6 +142,9 @@ Local social network with community moderation.
 - [app/components/geolocation/GeoIndexedDbWriter.tsx](app/components/geolocation/GeoIndexedDbWriter.tsx): persists latest viewer position snapshots into IndexedDB.
 - [app/components/geolocation/GeoFeedRefresher.tsx](app/components/geolocation/GeoFeedRefresher.tsx): applies location updates to query params and forces SSR refresh.
 - [app/components/geolocation/browserState.ts](app/components/geolocation/browserState.ts): shared browser-state parsing helpers used by geolocation-aware client components.
+- [app/components/geolocation/composerNavigation.ts](app/components/geolocation/composerNavigation.ts): pure navigation-query builder that preserves distance/geolocation context for post/reply submissions.
+- [app/components/geolocation/backLinkNavigation.ts](app/components/geolocation/backLinkNavigation.ts): pure geo-aware back-link query restorer used by GeoAwareBackLink.
+- [app/components/geolocation/tabNavigation.ts](app/components/geolocation/tabNavigation.ts): pure Home-tab query builder that preserves/restores geolocation and sort context.
 - [app/components/geolocation/locationIndexedDb.ts](app/components/geolocation/locationIndexedDb.ts): low-level IndexedDB read/write helpers for location state.
 - [app/components/postActionQueue.ts](app/components/postActionQueue.ts): browser-side queue that persists action clicks and flushes them in chronological order.
 - [app/components/postActionState.ts](app/components/postActionState.ts): pure optimistic-state helpers (applyReactionLocally, applyModerationLocally, mergeServerState) used by PostActionControls.
@@ -146,6 +161,10 @@ Run with `npm test` (single pass) or `npm run test:watch` (interactive).
 - [lib/\_\_tests\_\_/navigation.test.ts](lib/__tests__/navigation.test.ts): 28 tests — `parseSortModeValue`, `buildNavigationQuery`, `withNavigationQuery`.
 - [lib/\_\_tests\_\_/sorting.test.ts](lib/__tests__/sorting.test.ts): 14 tests — individual comparators and `sortPostsByAggregateRanks`.
 - [app/components/\_\_tests\_\_/postActionState.test.ts](app/components/__tests__/postActionState.test.ts): 16 tests — `applyReactionLocally`, `applyModerationLocally`, `mergeServerState`.
+- [app/components/geolocation/\_\_tests\_\_/browserState.test.ts](app/components/geolocation/__tests__/browserState.test.ts): 17 tests — `normalizeSortMode`, `parseLocationSnapshot`, `readSortPreferences`, `ensureDistanceModeFromPreferences`.
+- [app/components/geolocation/\_\_tests\_\_/composerNavigation.test.ts](app/components/geolocation/__tests__/composerNavigation.test.ts): 4 tests — composer navigation query composition and coordinate-preservation behavior.
+- [app/components/geolocation/\_\_tests\_\_/backLinkNavigation.test.ts](app/components/geolocation/__tests__/backLinkNavigation.test.ts): 3 tests — back-link geolocation query restoration and stale activity-marker fallback.
+- [app/components/geolocation/\_\_tests\_\_/tabNavigation.test.ts](app/components/geolocation/__tests__/tabNavigation.test.ts): 3 tests — Home-tab geolocation restoration and query sanitization.
 
 1. Install dependencies with `npm install`.
 2. Ensure `DATABASE_URL` is set in `.env`.

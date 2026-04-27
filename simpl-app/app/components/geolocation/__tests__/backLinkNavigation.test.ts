@@ -1,0 +1,97 @@
+import { beforeEach, describe, expect, it } from "vitest";
+import { ensureGeoQuery } from "@/app/components/geolocation/backLinkNavigation";
+import {
+  LOCATION_ACTIVITY_STORAGE_KEY,
+  LOCATION_STORAGE_KEY,
+  SORT_PREFERENCES_STORAGE_KEY,
+} from "@/app/components/geolocation/constants";
+
+function installMockLocalStorage() {
+  const store = new Map<string, string>();
+
+  const localStorageMock = {
+    get length() {
+      return store.size;
+    },
+    clear() {
+      store.clear();
+    },
+    getItem(key: string) {
+      return store.has(key) ? store.get(key)! : null;
+    },
+    key(index: number) {
+      return [...store.keys()][index] ?? null;
+    },
+    removeItem(key: string) {
+      store.delete(key);
+    },
+    setItem(key: string, value: string) {
+      store.set(key, value);
+    },
+  } satisfies Storage;
+
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: localStorageMock,
+  });
+}
+
+describe("ensureGeoQuery", () => {
+  beforeEach(() => {
+    installMockLocalStorage();
+    localStorage.clear();
+  });
+
+  it("keeps explicit coordinates and forces geo=on", () => {
+    const params = new URLSearchParams("distance=off&lat=46.500000&lng=6.600000");
+
+    localStorage.setItem(
+      SORT_PREFERENCES_STORAGE_KEY,
+      JSON.stringify({ popularity: "off", date: "down", distance: "down" }),
+    );
+
+    const result = ensureGeoQuery("/", params);
+    const output = new URL(result, "http://localhost");
+
+    expect(output.searchParams.get("lat")).toBe("46.500000");
+    expect(output.searchParams.get("lng")).toBe("6.600000");
+    expect(output.searchParams.get("distance")).toBe("down");
+    expect(output.searchParams.get("geo")).toBe("on");
+  });
+
+  it("restores coordinates from stored snapshot even when activity marker is off", () => {
+    localStorage.setItem(LOCATION_ACTIVITY_STORAGE_KEY, "off");
+    localStorage.setItem(
+      LOCATION_STORAGE_KEY,
+      JSON.stringify({
+        active: true,
+        latitude: 46.519653,
+        longitude: 6.632273,
+        updatedAt: 1_761_711_000_000,
+      }),
+    );
+    localStorage.setItem(
+      SORT_PREFERENCES_STORAGE_KEY,
+      JSON.stringify({ popularity: "off", date: "down", distance: "down" }),
+    );
+
+    const result = ensureGeoQuery("/", new URLSearchParams("distance=off"));
+    const output = new URL(result, "http://localhost");
+
+    expect(output.searchParams.get("lat")).toBe("46.519653");
+    expect(output.searchParams.get("lng")).toBe("6.632273");
+    expect(output.searchParams.get("distance")).toBe("down");
+    expect(output.searchParams.get("geo")).toBe("on");
+  });
+
+  it("returns unchanged query when no location context is available", () => {
+    localStorage.setItem(LOCATION_ACTIVITY_STORAGE_KEY, "off");
+
+    const result = ensureGeoQuery("/", new URLSearchParams("date=down"));
+    const output = new URL(result, "http://localhost");
+
+    expect(output.searchParams.get("date")).toBe("down");
+    expect(output.searchParams.has("lat")).toBe(false);
+    expect(output.searchParams.has("lng")).toBe(false);
+  });
+});

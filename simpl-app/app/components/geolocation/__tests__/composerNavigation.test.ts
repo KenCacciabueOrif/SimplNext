@@ -1,0 +1,56 @@
+import { describe, expect, it } from "vitest";
+import { buildComposerNavigationQuery } from "@/app/components/geolocation/composerNavigation";
+import type { ViewerLocationSnapshot } from "@/app/components/geolocation/types";
+
+function makeSnapshot(overrides?: Partial<ViewerLocationSnapshot>): ViewerLocationSnapshot {
+  return {
+    active: true,
+    latitude: 46.519653,
+    longitude: 6.632273,
+    updatedAt: 1_761_710_000_000,
+    ...overrides,
+  };
+}
+
+describe("buildComposerNavigationQuery", () => {
+  it("keeps query coordinates when snapshot is temporarily unavailable", () => {
+    const result = buildComposerNavigationQuery("popularity=down&date=off&lat=46.500000&lng=6.600000", null);
+    const params = new URLSearchParams(result);
+
+    expect(params.get("lat")).toBe("46.500000");
+    expect(params.get("lng")).toBe("6.600000");
+    expect(params.get("distance")).toBe("down");
+    expect(params.get("geo")).toBe("on");
+  });
+
+  it("prefers active snapshot coordinates over stale query coordinates", () => {
+    const snapshot = makeSnapshot({ latitude: 40.7128, longitude: -74.006 });
+    const result = buildComposerNavigationQuery("lat=46.500000&lng=6.600000&distance=up", snapshot);
+    const params = new URLSearchParams(result);
+
+    expect(params.get("lat")).toBe("40.712800");
+    expect(params.get("lng")).toBe("-74.006000");
+    expect(params.get("distance")).toBe("up");
+    expect(params.get("geo")).toBe("on");
+  });
+
+  it("marks geo off when no coordinates are available anywhere", () => {
+    const snapshot = makeSnapshot({ active: false, latitude: null, longitude: null });
+    const result = buildComposerNavigationQuery("popularity=up&distance=off", snapshot);
+    const params = new URLSearchParams(result);
+
+    expect(params.has("lat")).toBe(false);
+    expect(params.has("lng")).toBe(false);
+    expect(params.get("geo")).toBe("off");
+    expect(params.get("distance")).toBe("off");
+  });
+
+  it("removes invalid sort modes from query", () => {
+    const result = buildComposerNavigationQuery("popularity=invalid&date=down&distance=SIDE", null);
+    const params = new URLSearchParams(result);
+
+    expect(params.has("popularity")).toBe(false);
+    expect(params.get("date")).toBe("down");
+    expect(params.has("distance")).toBe(false);
+  });
+});

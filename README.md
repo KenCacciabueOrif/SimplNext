@@ -1,3 +1,7 @@
+> Last updated: 2026-04-27
+> Changes: Documented the Home-tab geolocation-context persistence fix in `simpl-app`, so returning Home from thread/comment pages keeps Distance and coordinates when GPS is active.
+> Last updated: 2026-04-27
+> Changes: Documented the geolocation navigation-context fix delivered in `simpl-app` to prevent Distance from falling back to `=` after publish/thread return flows when permission is granted.
 > Last updated: 2026-04-24
 > Changes: Started the incremental global cleanup in `simpl-app` with first anti-spaghetti quick wins (dead-code removal and shared geolocation browser-state utility extraction).
 > Last updated: 2026-04-22
