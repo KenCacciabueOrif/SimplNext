@@ -598,6 +598,18 @@ select {
     max-width: 100%;
   }
 
+  .reply-form-panel {
+    max-height: 58dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
+  }
+
+  .field textarea {
+    min-height: 96px;
+    resize: none;
+  }
+
   .post-meta-bar {
     font-size: 0.75rem;
     gap: 6px;
