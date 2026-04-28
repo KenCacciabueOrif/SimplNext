@@ -4,7 +4,8 @@
  * Purpose: Define the global visual system and adaptive behavior of the Simpl UI.
  */
 
-@import "tailwindcss";
+@import "tailwindcss/theme";
+@import "tailwindcss/utilities";
 
 :root {
   --background: #000000;
@@ -29,6 +30,7 @@
 
 html {
   min-height: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
