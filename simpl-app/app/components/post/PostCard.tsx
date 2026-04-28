@@ -1,6 +1,6 @@
 ﻿/**
  * Last updated: 2026-04-28
- * Changes: Converted to a client component and switched Report to optimistic queue handling so reported posts hide immediately for the reporting viewer.
+ * Changes: Converted to a client component, switched Report to optimistic queue handling, and made createdAt rendering deterministic (UTC) to avoid Vercel hydration mismatch.
  * Purpose: Present Simpl posts with their metadata, counters, and available actions.
  */
 
@@ -53,6 +53,16 @@ function formatDistance(distanceKm: number | null) {
   return `${Math.round(distanceKm)} km`;
 }
 
+const CREATED_AT_FORMATTER = new Intl.DateTimeFormat("fr-CH", {
+  dateStyle: "short",
+  timeStyle: "medium",
+  timeZone: "UTC",
+});
+
+function formatCreatedAt(createdAt: Date | string) {
+  return CREATED_AT_FORMATTER.format(new Date(createdAt));
+}
+
 export default function PostCard({ post, threadId, mode, navigationQuery }: PostCardProps) {
   const [isHiddenForReporter, setIsHiddenForReporter] = useState(
     post.viewerModerationDecision === "REMOVE",
@@ -79,7 +89,7 @@ export default function PostCard({ post, threadId, mode, navigationQuery }: Post
     >
       <div className="post-meta-bar">
         <span>{post.authorDisplayName}</span>
-        <span>{new Date(post.createdAt).toLocaleString("fr-CH")}</span>
+        <span>{formatCreatedAt(post.createdAt)}</span>
         <span>{formatDistance(post.distanceKm)}</span>
       </div>
 
