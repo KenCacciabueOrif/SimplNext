@@ -1,6 +1,6 @@
 /**
- * Last updated: 2026-04-27
- * Changes: Extracted from lib/simpl.ts as part of Phase 2 decomposition.
+ * Last updated: 2026-04-28
+ * Changes: Tightened moderation queue filtering to include only reported posts with moderation statuses (UNDER_REVIEW/HIDDEN), excluding active/unreported posts.
  * Purpose: Server-side Prisma post queries for feed, thread, and moderation views.
  */
 
@@ -115,7 +115,18 @@ export async function getThreadPageData(
   }
 
   const replies = (await prisma.post.findMany({
-    where: { parentId: postId, status: PostStatus.ACTIVE },
+    where: {
+      parentId: postId,
+      OR: [
+        { status: PostStatus.ACTIVE },
+        {
+          AND: [
+            { status: { in: [PostStatus.UNDER_REVIEW, PostStatus.HIDDEN] } },
+            { isHomepageVisible: true },
+          ],
+        },
+      ],
+    },
     orderBy: [{ createdAt: "desc" }],
     include: buildPostInclude(viewerActor?.id ?? ""),
   })) as unknown as PostQueryRecord[];
@@ -135,16 +146,23 @@ export async function getModerationQueue(
   const viewerActor = await getViewerActor();
 
   const posts = (await prisma.post.findMany({
-    where: {},
+    where: {
+      status: { in: [PostStatus.UNDER_REVIEW, PostStatus.HIDDEN] },
+      OR: [
+        { reportCount: { gt: 0 } },
+        { removeVoteCount: { gt: 0 } },
+      ],
+    },
     orderBy: [{ createdAt: "desc" }],
     include: buildPostInclude(viewerActor?.id ?? ""),
   })) as unknown as PostQueryRecord[];
 
   const normalizedPosts = posts.map((post) => toPostListItem(post, viewerLocation));
-  const moderationPosts = normalizedPosts.filter((post) => {
-    const outcome = evaluateModerationPolicy(post.keepVoteCount, post.removeVoteCount);
-    return outcome.inModeration;
-  });
+
+  const moderationPosts = normalizedPosts.filter((post) => (
+    (post.status === PostStatus.UNDER_REVIEW || post.status === PostStatus.HIDDEN)
+    && (post.reportCount > 0 || post.removeVoteCount > 0)
+  ));
 
   return sortPostsByAggregateRanks(moderationPosts, sortState);
 }

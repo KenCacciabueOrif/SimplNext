@@ -34,6 +34,7 @@ vi.mock("next/link", () => ({
 
 vi.mock("@/app/components/geolocation/tabNavigation", () => ({
   buildHomeTabHref: vi.fn(() => "/"),
+  buildModerationTabHref: vi.fn(() => "/moderation"),
 }));
 
 import { usePathname } from "next/navigation";
