@@ -9,13 +9,17 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { buildHomeTabHref } from "@/app/components/geolocation/tabNavigation";
+import {
+  buildHomeTabHref,
+  buildModerationTabHref,
+} from "@/app/components/geolocation/tabNavigation";
 
 export default function AppTabs() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const isModeration = pathname.startsWith("/moderation");
   const homeHref = useMemo(() => buildHomeTabHref(searchParams.toString()), [searchParams]);
+  const moderationHref = useMemo(() => buildModerationTabHref(searchParams.toString()), [searchParams]);
 
   return (
     <nav className="legacy-tabs" aria-label="Primary">
@@ -27,7 +31,7 @@ export default function AppTabs() {
         Home
       </Link>
       <Link
-        href="/moderation"
+        href={moderationHref}
         className={isModeration ? "is-active" : undefined}
         aria-current={isModeration ? "page" : undefined}
       >

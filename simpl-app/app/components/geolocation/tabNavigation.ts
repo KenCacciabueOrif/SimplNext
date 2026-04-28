@@ -1,6 +1,6 @@
 /**
- * Last updated: 2026-04-27
- * Changes: Added Home-tab navigation query restoration with geolocation-aware fallback so tab clicks keep active distance context.
+ * Last updated: 2026-04-28
+ * Changes: Added Moderation-tab navigation query restoration and extracted shared tab-query builder logic so both tabs preserve active geolocation context.
  * Purpose: Build Home tab href values that preserve sort and geolocation state across deep navigation.
  */
 
@@ -21,7 +21,7 @@ function parseCoordinate(value: string | null, min: number, max: number): string
   return parsed.toFixed(6);
 }
 
-export function buildHomeTabHref(rawQuery: string) {
+function buildTabHref(pathname: "/" | "/moderation", rawQuery: string) {
   const input = new URLSearchParams(rawQuery);
   const output = new URLSearchParams();
 
@@ -46,5 +46,13 @@ export function buildHomeTabHref(rawQuery: string) {
     output.set("geo", geo);
   }
 
-  return ensureGeoQuery("/", output);
+  return ensureGeoQuery(pathname, output);
+}
+
+export function buildHomeTabHref(rawQuery: string) {
+  return buildTabHref("/", rawQuery);
+}
+
+export function buildModerationTabHref(rawQuery: string) {
+  return buildTabHref("/moderation", rawQuery);
 }

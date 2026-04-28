@@ -1,4 +1,6 @@
 ﻿> Last updated: 2026-04-28
+> Changes: Fixed Moderation-tab navigation to preserve active geolocation/sort query context (including distance down recovery) instead of resetting to `=` when switching tabs.
+> Last updated: 2026-04-28
 > Changes: Fixed create-post/create-reply geolocation carry-over: when location is active, distance context now stays in down mode across navigation, no permission re-prompt is needed, and created content keeps coordinates via client+server fallback.
 > Last updated: 2026-04-28
 > Changes: Locked post-action button visuals to local optimistic state for the current view; backend acknowledgements no longer rewrite card counts/active states until explicit reload or sort/reorder navigation.

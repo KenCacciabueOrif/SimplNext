@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { buildHomeTabHref } from "@/app/components/geolocation/tabNavigation";
+import {
+  buildHomeTabHref,
+  buildModerationTabHref,
+} from "@/app/components/geolocation/tabNavigation";
 import {
   LOCATION_ACTIVITY_STORAGE_KEY,
   LOCATION_STORAGE_KEY,
@@ -7,7 +10,7 @@ import {
 } from "@/app/components/geolocation/constants";
 import { installMockLocalStorage } from "@/app/components/geolocation/__tests__/testHelpers";
 
-describe("buildHomeTabHref", () => {
+describe("tab navigation href builders", () => {
   beforeEach(() => {
     installMockLocalStorage();
     localStorage.clear();
@@ -59,5 +62,21 @@ describe("buildHomeTabHref", () => {
     expect(url.searchParams.has("lat")).toBe(false);
     expect(url.searchParams.has("lng")).toBe(false);
     expect(url.searchParams.has("junk")).toBe(false);
+  });
+
+  it("keeps geolocation + distance context when switching to moderation", () => {
+    localStorage.setItem(
+      SORT_PREFERENCES_STORAGE_KEY,
+      JSON.stringify({ popularity: "off", date: "down", distance: "down" }),
+    );
+
+    const href = buildModerationTabHref("distance=off&lat=46.500000&lng=6.600000");
+    const url = new URL(href, "http://localhost");
+
+    expect(url.pathname).toBe("/moderation");
+    expect(url.searchParams.get("lat")).toBe("46.500000");
+    expect(url.searchParams.get("lng")).toBe("6.600000");
+    expect(url.searchParams.get("distance")).toBe("down");
+    expect(url.searchParams.get("geo")).toBe("on");
   });
 });
