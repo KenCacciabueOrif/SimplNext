@@ -25,14 +25,14 @@ export default function ThreadReplyComposer({ parentId }: ThreadReplyComposerPro
         aria-expanded={isOpen}
         aria-controls="thread-reply-composer-panel"
       >
-        {isOpen ? "Masquer le commentaire" : "Nouveau commentaire"}
+        {isOpen ? "-" : "+"}
       </button>
 
       {isOpen ? (
         <div id="thread-reply-composer-panel" className="reply-form-panel">
           <PostComposer
             heading="Nouveau commentaire"
-            submitLabel="Publier la réponse"
+            submitLabel="+"
             description="Chaque réponse devient un nouveau post relié à cet élément, avec coordonnées automatiques si la localisation est active."
             parentId={parentId}
           />

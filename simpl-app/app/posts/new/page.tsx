@@ -54,7 +54,7 @@ export default async function NewPostPage({
 
       <PostComposer
         heading="Nouveau post"
-        submitLabel="Publier"
+        submitLabel="+"
         description="Ajoute un titre et un message. Les coordonnées sont récupérées automatiquement quand la localisation est active."
       />
     </div>
