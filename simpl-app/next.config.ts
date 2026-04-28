@@ -6,6 +6,15 @@
 
 import type { NextConfig } from "next";
 
+const IS_VERCEL_PREVIEW = process.env.VERCEL_ENV === "preview";
+const SCRIPT_SRC_VALUES = ["'self'", "'unsafe-inline'", "'unsafe-eval'"];
+const CONNECT_SRC_VALUES = ["'self'"];
+
+if (IS_VERCEL_PREVIEW) {
+  SCRIPT_SRC_VALUES.push("https://vercel.live");
+  CONNECT_SRC_VALUES.push("https://vercel.live", "wss://vercel.live");
+}
+
 // ---------------------------------------------------------------------------
 // Security headers applied to every route
 // ---------------------------------------------------------------------------
@@ -24,11 +33,11 @@ const SECURITY_HEADERS = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // unsafe-* required for Next.js dev/prod hydration
+      `script-src ${SCRIPT_SRC_VALUES.join(" ")}`, // unsafe-* required for Next.js dev/prod hydration
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data:",
-      "connect-src 'self'",
+      `connect-src ${CONNECT_SRC_VALUES.join(" ")}`,
       "frame-ancestors 'none'",
     ].join("; "),
   },
