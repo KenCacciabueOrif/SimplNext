@@ -4,9 +4,6 @@
  * Purpose: Define the global visual system and adaptive behavior of the Simpl UI.
  */
 
-@import "tailwindcss/theme";
-@import "tailwindcss/utilities";
-
 :root {
   --background: #000000;
   --foreground: #ffffff;
@@ -15,13 +12,6 @@
   --panel: #000000;
   --panel-active: #ffffff;
   --panel-active-text: #000000;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
 * {
