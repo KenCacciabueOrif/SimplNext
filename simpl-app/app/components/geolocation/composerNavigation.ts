@@ -1,6 +1,6 @@
 /**
- * Last updated: 2026-04-27
- * Changes: Extracted pure navigation-query composition for post/reply forms to preserve geolocation context while snapshot loading is pending.
+ * Last updated: 2026-04-28
+ * Changes: Stopped forcing geo=off when coordinates are temporarily unavailable so active distance context does not regress during post/reply submit flows.
  * Purpose: Build a sanitized navigation query for composer submissions using URL state + optional live geolocation snapshot.
  */
 
@@ -53,10 +53,6 @@ export function buildComposerNavigationQuery(
   } else {
     merged.delete("lat");
     merged.delete("lng");
-
-    if (merged.get("geo") !== "on") {
-      merged.set("geo", "off");
-    }
   }
 
   const normalizedDistance = normalizeSortMode(merged.get("distance"));

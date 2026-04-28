@@ -1,4 +1,6 @@
 ﻿> Last updated: 2026-04-28
+> Changes: Fixed create-post/create-reply geolocation carry-over: when location is active, distance context now stays in down mode across navigation, no permission re-prompt is needed, and created content keeps coordinates via client+server fallback.
+> Last updated: 2026-04-28
 > Changes: Locked post-action button visuals to local optimistic state for the current view; backend acknowledgements no longer rewrite card counts/active states until explicit reload or sort/reorder navigation.
 > Last updated: 2026-04-28
 > Changes: Report now uses the same optimistic post-action queue as Like/DisLike/Good/Bad, and reported cards are hidden immediately for the reporting viewer without waiting for a route reload.
@@ -120,6 +122,7 @@ Local social network with community moderation.
 - Global cleanup (2026-04-27): extracted `useGeoSort` hook from SortBar; moved geo math to `lib/geo.ts`; moved URL/feed-sort helpers to `lib/navigation.ts`; unified duplicate types in `lib/types.ts`; added root `loading.tsx` + `error.tsx`; added OWASP security headers in `next.config.ts`; coverage expanded to 118 tests.
 - Reaction and moderation clicks now update the card immediately, are stored chronologically in browser storage, and are replayed asynchronously to the backend.
 - Server acknowledgements for post actions no longer overwrite the current card UI state, so rapid alternating clicks keep the latest local optimistic result until explicit reload or sort/reorder navigation.
+- Composer submit now keeps geolocation active-context across page transitions: if live snapshot timing is late, query coordinates are reused for both redirect context and persisted post/reply coordinates, preventing unintended Distance `=` fallback.
 - Feed, thread-reply, and moderation lists no longer rerender immediately after reaction or moderation votes, so viewport order stays stable until the user reloads or changes sort settings.
 - Like/DisLike and Good/Bad now share the same second-click cancellation behavior.
 - Moderation now uses vote thresholds and ratios: below ten moderation votes the post stays in moderation while remaining homepage-visible; at ten or more votes, ratio rules decide delete, moderation exit, or moderation persistence.

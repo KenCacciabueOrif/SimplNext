@@ -1,4 +1,6 @@
 /**
+ * Last updated: 2026-04-28
+ * Changes: Added server-side coordinate fallback from sanitized navigationQuery so created posts/replies keep localization even if composer hidden fields are briefly empty.
  * Purpose: Server actions for post and reply creation.
  */
 
@@ -17,8 +19,13 @@ export async function createPostAction(formData: FormData) {
   const body = normalizeText(formData.get("body"));
   const parentId = normalizeText(formData.get("parentId")) || null;
   const navigationQuery = buildNavigationQuery(formData.get("navigationQuery"));
-  const latitude = parseOptionalFloat(formData.get("latitude"));
-  const longitude = parseOptionalFloat(formData.get("longitude"));
+  const formLatitude = parseOptionalFloat(formData.get("latitude"));
+  const formLongitude = parseOptionalFloat(formData.get("longitude"));
+  const navigationParams = new URLSearchParams(navigationQuery);
+  const fallbackLatitude = parseOptionalFloat(navigationParams.get("lat"));
+  const fallbackLongitude = parseOptionalFloat(navigationParams.get("lng"));
+  const latitude = formLatitude ?? fallbackLatitude;
+  const longitude = formLongitude ?? fallbackLongitude;
 
   if (!title || !body) {
     throw new Error("A title and body are required to publish content.");

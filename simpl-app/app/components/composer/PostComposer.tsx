@@ -1,6 +1,6 @@
 /**
- * Last updated: 2026-04-27
- * Changes: Preserved existing query coordinates in navigation context when the live snapshot is temporarily unavailable, preventing distance-mode regressions after publish/back navigation.
+ * Last updated: 2026-04-28
+ * Changes: Added query-coordinate fallback for hidden latitude/longitude form fields so post/reply creation still carries localization when the live snapshot arrives late.
  * Purpose: Render the create form shared by the new post page and thread reply flow.
  */
 
@@ -34,6 +34,38 @@ export default function PostComposer({
   const searchParams = useSearchParams();
   const [locationSnapshot, setLocationSnapshot] = useState<ViewerLocationSnapshot | null>(null);
 
+  const queryLatitude = useMemo(() => {
+    const rawValue = searchParams.get("lat");
+
+    if (!rawValue) {
+      return null;
+    }
+
+    const parsed = Number(rawValue);
+
+    if (!Number.isFinite(parsed) || parsed < -90 || parsed > 90) {
+      return null;
+    }
+
+    return parsed.toFixed(6);
+  }, [searchParams]);
+
+  const queryLongitude = useMemo(() => {
+    const rawValue = searchParams.get("lng");
+
+    if (!rawValue) {
+      return null;
+    }
+
+    const parsed = Number(rawValue);
+
+    if (!Number.isFinite(parsed) || parsed < -180 || parsed > 180) {
+      return null;
+    }
+
+    return parsed.toFixed(6);
+  }, [searchParams]);
+
   useEffect(() => {
     const fromStorage = parseLocationSnapshot(localStorage.getItem(LOCATION_STORAGE_KEY));
 
@@ -65,19 +97,19 @@ export default function PostComposer({
 
   const latitudeValue = useMemo(() => {
     if (!locationSnapshot?.active || locationSnapshot.latitude === null) {
-      return "";
+      return queryLatitude ?? "";
     }
 
     return locationSnapshot.latitude.toFixed(6);
-  }, [locationSnapshot]);
+  }, [locationSnapshot, queryLatitude]);
 
   const longitudeValue = useMemo(() => {
     if (!locationSnapshot?.active || locationSnapshot.longitude === null) {
-      return "";
+      return queryLongitude ?? "";
     }
 
     return locationSnapshot.longitude.toFixed(6);
-  }, [locationSnapshot]);
+  }, [locationSnapshot, queryLongitude]);
 
   const navigationQueryValue = useMemo(() => {
     return buildComposerNavigationQuery(searchParams.toString(), locationSnapshot);

@@ -34,15 +34,26 @@ describe("buildComposerNavigationQuery", () => {
     expect(params.get("geo")).toBe("on");
   });
 
-  it("marks geo off when no coordinates are available anywhere", () => {
+  it("does not force geo off when no coordinates are available anywhere", () => {
     const snapshot = makeSnapshot({ active: false, latitude: null, longitude: null });
     const result = buildComposerNavigationQuery("popularity=up&distance=off", snapshot);
     const params = new URLSearchParams(result);
 
     expect(params.has("lat")).toBe(false);
     expect(params.has("lng")).toBe(false);
-    expect(params.get("geo")).toBe("off");
+    expect(params.has("geo")).toBe(false);
     expect(params.get("distance")).toBe("off");
+  });
+
+  it("keeps incoming geo=on when snapshot is temporarily unavailable", () => {
+    const snapshot = makeSnapshot({ active: false, latitude: null, longitude: null });
+    const result = buildComposerNavigationQuery("popularity=up&distance=down&geo=on", snapshot);
+    const params = new URLSearchParams(result);
+
+    expect(params.has("lat")).toBe(false);
+    expect(params.has("lng")).toBe(false);
+    expect(params.get("geo")).toBe("on");
+    expect(params.get("distance")).toBe("down");
   });
 
   it("removes invalid sort modes from query", () => {
