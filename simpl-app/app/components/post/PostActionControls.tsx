@@ -1,6 +1,6 @@
 ﻿/**
  * Last updated: 2026-04-28
- * Changes: Routed Report through the optimistic queue flow and exposed an optional callback so parent cards can hide immediately for the reporting viewer.
+ * Changes: Kept Like/DisLike/Good/Bad/Report rendering strictly optimistic on the current page by stopping delayed server-ack state merges.
  * Purpose: Handle Like/DisLike/Good/Bad/Report interactions with immediate UI feedback while server actions complete.
  */
 
@@ -11,7 +11,6 @@ import { ModerationDecision, ReactionType } from "@prisma/client";
 import {
   applyModerationLocally,
   applyReactionLocally,
-  mergeServerState,
   type OptimisticPostState,
 } from "@/app/components/post/postActionState";
 import {
@@ -68,14 +67,6 @@ export default function PostActionControls({
 
     return subscribeToPostActionQueue((snapshot) => {
       setQueuedCount(snapshot.queue.filter((item) => item.postId === postId).length);
-
-      const acknowledged = snapshot.acknowledged;
-
-      if (!acknowledged || acknowledged.item.postId !== postId) {
-        return;
-      }
-
-      setState((currentState) => mergeServerState(currentState, acknowledged.state));
     });
   }, [postId]);
 

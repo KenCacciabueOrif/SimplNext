@@ -1,4 +1,6 @@
 ﻿> Last updated: 2026-04-28
+> Changes: Locked post-action button visuals to local optimistic state for the current view; backend acknowledgements no longer rewrite card counts/active states until explicit reload or sort/reorder navigation.
+> Last updated: 2026-04-28
 > Changes: Report now uses the same optimistic post-action queue as Like/DisLike/Good/Bad, and reported cards are hidden immediately for the reporting viewer without waiting for a route reload.
 > Last updated: 2026-04-28
 > Changes: Fixed a production hydration mismatch on Vercel by making post timestamp rendering deterministic in PostCard (UTC formatter instead of environment-dependent locale runtime output).
@@ -117,6 +119,7 @@ Local social network with community moderation.
 - Reactions and moderation votes are normalized into separate tables instead of storing user arrays on the post record.
 - Global cleanup (2026-04-27): extracted `useGeoSort` hook from SortBar; moved geo math to `lib/geo.ts`; moved URL/feed-sort helpers to `lib/navigation.ts`; unified duplicate types in `lib/types.ts`; added root `loading.tsx` + `error.tsx`; added OWASP security headers in `next.config.ts`; coverage expanded to 118 tests.
 - Reaction and moderation clicks now update the card immediately, are stored chronologically in browser storage, and are replayed asynchronously to the backend.
+- Server acknowledgements for post actions no longer overwrite the current card UI state, so rapid alternating clicks keep the latest local optimistic result until explicit reload or sort/reorder navigation.
 - Feed, thread-reply, and moderation lists no longer rerender immediately after reaction or moderation votes, so viewport order stays stable until the user reloads or changes sort settings.
 - Like/DisLike and Good/Bad now share the same second-click cancellation behavior.
 - Moderation now uses vote thresholds and ratios: below ten moderation votes the post stays in moderation while remaining homepage-visible; at ten or more votes, ratio rules decide delete, moderation exit, or moderation persistence.
@@ -154,7 +157,7 @@ Local social network with community moderation.
 - [lib/sorting.ts](lib/sorting.ts): pure tri-state ranking engine — individual comparators and aggregate normalized rank averaging.
 - [lib/policy.ts](lib/policy.ts): vote-threshold moderation policy — threshold constants and outcome evaluator.
 - [lib/navigation.ts](lib/navigation.ts): server-side URL navigation query sanitizer and composer for post/reply redirects.
-- [app/components/post/PostActionControls.tsx](app/components/post/PostActionControls.tsx): client-side action controls that update immediately and subscribe to backend acknowledgements from the browser queue.
+- [app/components/post/PostActionControls.tsx](app/components/post/PostActionControls.tsx): client-side action controls that update immediately, persist clicks in the browser queue, and keep the current view strictly on local optimistic state until explicit reload/reorder.
 - [app/components/sort/SortBar.tsx](app/components/sort/SortBar.tsx): shared sort controls used by the feed, moderation queue, and thread replies.
 - [app/components/composer/ThreadReplyComposer.tsx](app/components/composer/ThreadReplyComposer.tsx): client-side toggle wrapper that keeps the thread reply form hidden until the user opens it.
 - [app/components/geolocation/GeoLocationManager.tsx](app/components/geolocation/GeoLocationManager.tsx): global client bootstrap for geolocation permissions, live watcher updates, and URL/storage synchronization.
