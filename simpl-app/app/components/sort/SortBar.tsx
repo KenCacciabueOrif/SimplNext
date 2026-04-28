@@ -76,7 +76,7 @@ export default function SortBar({ pathname, sortState, viewerLocation }: SortBar
           </p>
           <button
             type="button"
-            className="button"
+            className="geo-permission-button"
             onClick={requestLocationFromUserAction}
             disabled={isLocating}
           >
