@@ -13,6 +13,8 @@ import {
   LOCATION_EVENT_NAME,
   LOCATION_STORAGE_KEY,
   SORT_PREFERENCES_STORAGE_KEY,
+  VIEWER_LOCATION_COOKIE_KEY,
+  VIEWER_LOCATION_COOKIE_MAX_AGE_SECONDS,
 } from "@/app/components/geolocation/constants";
 import {
   ensureDistanceModeFromPreferences,
@@ -55,10 +57,10 @@ export default function GeoFeedRefresher({ request }: GeoFeedRefresherProps) {
     const { snapshot } = request;
     const currentUrl = new URL(window.location.href);
     const params = currentUrl.searchParams;
+    params.delete("lat");
+    params.delete("lng");
 
     if (snapshot.active && snapshot.latitude !== null && snapshot.longitude !== null) {
-      params.set("lat", snapshot.latitude.toFixed(6));
-      params.set("lng", snapshot.longitude.toFixed(6));
       params.set("geo", "on");
 
       const preferences = readSortPreferences();
@@ -68,11 +70,11 @@ export default function GeoFeedRefresher({ request }: GeoFeedRefresherProps) {
       ensureDistanceModeFromPreferences(params, preferences);
 
       localStorage.setItem(LOCATION_ACTIVITY_STORAGE_KEY, "on");
+      document.cookie = `${VIEWER_LOCATION_COOKIE_KEY}=${snapshot.latitude.toFixed(6)}:${snapshot.longitude.toFixed(6)}; Max-Age=${VIEWER_LOCATION_COOKIE_MAX_AGE_SECONDS}; Path=/; SameSite=Lax${window.location.protocol === "https:" ? "; Secure" : ""}`;
     } else {
-      params.delete("lat");
-      params.delete("lng");
       params.set("geo", "off");
       localStorage.setItem(LOCATION_ACTIVITY_STORAGE_KEY, "off");
+      document.cookie = `${VIEWER_LOCATION_COOKIE_KEY}=; Max-Age=0; Path=/; SameSite=Lax${window.location.protocol === "https:" ? "; Secure" : ""}`;
     }
 
     persistSortPreferencesFromParams(params);

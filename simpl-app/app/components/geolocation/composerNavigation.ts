@@ -31,29 +31,22 @@ export function buildComposerNavigationQuery(
     merged.delete("date");
   }
 
-  const hasQueryCoordinates = Boolean(merged.get("lat") && merged.get("lng"));
-
   if (locationSnapshot?.active && locationSnapshot.latitude !== null && locationSnapshot.longitude !== null) {
-    merged.set("lat", locationSnapshot.latitude.toFixed(6));
-    merged.set("lng", locationSnapshot.longitude.toFixed(6));
     merged.set("geo", "on");
 
     if (!distance) {
       merged.set("distance", "down");
     }
-  } else if (hasQueryCoordinates) {
-    // Keep incoming navigation coordinates when the snapshot has not loaded yet.
-    if (merged.get("geo") !== "off") {
-      merged.set("geo", "on");
-    }
-
-    if (!distance) {
-      merged.set("distance", "down");
-    }
   } else {
-    merged.delete("lat");
-    merged.delete("lng");
+    const geoMode = merged.get("geo");
+
+    if (geoMode !== "on" && geoMode !== "off") {
+      merged.delete("geo");
+    }
   }
+
+  merged.delete("lat");
+  merged.delete("lng");
 
   const normalizedDistance = normalizeSortMode(merged.get("distance"));
 

@@ -16,7 +16,7 @@ describe("tab navigation href builders", () => {
     localStorage.clear();
   });
 
-  it("keeps valid query coordinates and restores distance from preferences", () => {
+  it("drops query coordinates and restores distance from preferences", () => {
     localStorage.setItem(
       SORT_PREFERENCES_STORAGE_KEY,
       JSON.stringify({ popularity: "off", date: "down", distance: "down" }),
@@ -26,13 +26,13 @@ describe("tab navigation href builders", () => {
     const url = new URL(href, "http://localhost");
 
     expect(url.pathname).toBe("/");
-    expect(url.searchParams.get("lat")).toBe("46.500000");
-    expect(url.searchParams.get("lng")).toBe("6.600000");
+    expect(url.searchParams.has("lat")).toBe(false);
+    expect(url.searchParams.has("lng")).toBe(false);
     expect(url.searchParams.get("distance")).toBe("down");
     expect(url.searchParams.get("geo")).toBe("on");
   });
 
-  it("restores coordinates from stored snapshot when current query has none", () => {
+  it("restores geo mode from stored snapshot when current query has none", () => {
     localStorage.setItem(LOCATION_ACTIVITY_STORAGE_KEY, "off");
     localStorage.setItem(
       LOCATION_STORAGE_KEY,
@@ -48,8 +48,8 @@ describe("tab navigation href builders", () => {
     const url = new URL(href, "http://localhost");
 
     expect(url.searchParams.get("date")).toBe("down");
-    expect(url.searchParams.get("lat")).toBe("46.519653");
-    expect(url.searchParams.get("lng")).toBe("6.632273");
+    expect(url.searchParams.has("lat")).toBe(false);
+    expect(url.searchParams.has("lng")).toBe(false);
     expect(url.searchParams.get("distance")).toBe("down");
     expect(url.searchParams.get("geo")).toBe("on");
   });
@@ -64,7 +64,7 @@ describe("tab navigation href builders", () => {
     expect(url.searchParams.has("junk")).toBe(false);
   });
 
-  it("keeps geolocation + distance context when switching to moderation", () => {
+  it("keeps geolocation mode + distance context when switching to moderation", () => {
     localStorage.setItem(
       SORT_PREFERENCES_STORAGE_KEY,
       JSON.stringify({ popularity: "off", date: "down", distance: "down" }),
@@ -74,8 +74,8 @@ describe("tab navigation href builders", () => {
     const url = new URL(href, "http://localhost");
 
     expect(url.pathname).toBe("/moderation");
-    expect(url.searchParams.get("lat")).toBe("46.500000");
-    expect(url.searchParams.get("lng")).toBe("6.600000");
+    expect(url.searchParams.has("lat")).toBe(false);
+    expect(url.searchParams.has("lng")).toBe(false);
     expect(url.searchParams.get("distance")).toBe("down");
     expect(url.searchParams.get("geo")).toBe("on");
   });

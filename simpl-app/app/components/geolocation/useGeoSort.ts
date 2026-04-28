@@ -14,8 +14,12 @@ import { startTransition, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { FeedSortState, SortMode, ViewerLocation } from "@/lib/types";
 import {
+  LOCATION_ACTIVITY_STORAGE_KEY,
+  LOCATION_STORAGE_KEY,
   PERMISSION_STATE_EVENT_NAME,
   SORT_PREFERENCES_STORAGE_KEY,
+  VIEWER_LOCATION_COOKIE_KEY,
+  VIEWER_LOCATION_COOKIE_MAX_AGE_SECONDS,
 } from "@/app/components/geolocation/constants";
 import type { PermissionStateValue } from "@/app/components/geolocation/types";
 
@@ -59,6 +63,19 @@ function requestCurrentPosition(
   );
 }
 
+function persistViewerLocation(lat: number, lng: number) {
+  const snapshot = {
+    active: true,
+    latitude: lat,
+    longitude: lng,
+    updatedAt: Date.now(),
+  };
+
+  localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(snapshot));
+  localStorage.setItem(LOCATION_ACTIVITY_STORAGE_KEY, "on");
+  document.cookie = `${VIEWER_LOCATION_COOKIE_KEY}=${lat.toFixed(6)}:${lng.toFixed(6)}; Max-Age=${VIEWER_LOCATION_COOKIE_MAX_AGE_SECONDS}; Path=/; SameSite=Lax${window.location.protocol === "https:" ? "; Secure" : ""}`;
+}
+
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
@@ -91,8 +108,7 @@ export function useGeoSort({
   // fresh viewer location. Also persists sort preferences to localStorage.
   function navigateToSortState(
     nextSortState: FeedSortState,
-    latitude?: number,
-    longitude?: number,
+    location?: ViewerLocation,
   ) {
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.delete("sort");
@@ -100,9 +116,8 @@ export function useGeoSort({
     nextParams.set("date", nextSortState.date);
     nextParams.set("distance", nextSortState.distance);
 
-    if (typeof latitude === "number" && typeof longitude === "number") {
-      nextParams.set("lat", latitude.toFixed(6));
-      nextParams.set("lng", longitude.toFixed(6));
+    if (location) {
+      nextParams.set("geo", "on");
     }
 
     localStorage.setItem(SORT_PREFERENCES_STORAGE_KEY, JSON.stringify(nextSortState));
@@ -125,7 +140,7 @@ export function useGeoSort({
 
     // Distance toggle ON — use cached location if available.
     if (viewerLocation) {
-      navigateToSortState(nextSortState, viewerLocation.latitude, viewerLocation.longitude);
+      navigateToSortState(nextSortState);
       return;
     }
 
@@ -139,7 +154,8 @@ export function useGeoSort({
     requestCurrentPosition(
       (lat, lng) => {
         setIsLocating(false);
-        navigateToSortState(nextSortState, lat, lng);
+        persistViewerLocation(lat, lng);
+        navigateToSortState(nextSortState, { latitude: lat, longitude: lng });
       },
       (error) => {
         setIsLocating(false);
@@ -165,11 +181,12 @@ export function useGeoSort({
     requestCurrentPosition(
       (lat, lng) => {
         setIsLocating(false);
+        persistViewerLocation(lat, lng);
         const nextSortState: FeedSortState = {
           ...sortState,
           distance: sortState.distance === "off" ? "down" : sortState.distance,
         };
-        navigateToSortState(nextSortState, lat, lng);
+        navigateToSortState(nextSortState, { latitude: lat, longitude: lng });
       },
       (error) => {
         setIsLocating(false);

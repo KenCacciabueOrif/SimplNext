@@ -5,12 +5,13 @@
  */
 
 import Link from "next/link";
+import { cookies } from "next/headers";
 import PostCard from "@/app/components/post/PostCard";
 import SortBar from "@/app/components/sort/SortBar";
 import { buildNavigationQueryFromState } from "@/lib/navigation";
+import { readViewerLocationFromCookies } from "@/lib/viewer-location";
 import {
   getFeedPosts,
-  parseViewerLocation,
   resolveFeedSortState,
   type PostListItem,
 } from "@/lib/simpl";
@@ -23,12 +24,10 @@ export default async function Home({
     date?: string;
     distance?: string;
     sort?: string;
-    lat?: string;
-    lng?: string;
   }>;
 }) {
-  const { lat, lng, sort, popularity, date, distance } = await searchParams;
-  const viewerLocation = parseViewerLocation(lat, lng);
+  const { sort, popularity, date, distance } = await searchParams;
+  const viewerLocation = readViewerLocationFromCookies(await cookies());
   const sortState = resolveFeedSortState({ date, distance, popularity, sort }, viewerLocation);
   const posts = await getFeedPosts(sortState, viewerLocation);
   const navigationQuery = buildNavigationQueryFromState(sortState, viewerLocation);

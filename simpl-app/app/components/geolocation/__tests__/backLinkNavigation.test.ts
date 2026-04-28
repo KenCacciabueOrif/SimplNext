@@ -13,7 +13,7 @@ describe("ensureGeoQuery", () => {
     localStorage.clear();
   });
 
-  it("keeps explicit coordinates and forces geo=on", () => {
+  it("drops coordinates and keeps geo=on with recovered distance", () => {
     const params = new URLSearchParams("distance=off&lat=46.500000&lng=6.600000");
 
     localStorage.setItem(
@@ -24,13 +24,13 @@ describe("ensureGeoQuery", () => {
     const result = ensureGeoQuery("/", params);
     const output = new URL(result, "http://localhost");
 
-    expect(output.searchParams.get("lat")).toBe("46.500000");
-    expect(output.searchParams.get("lng")).toBe("6.600000");
+    expect(output.searchParams.has("lat")).toBe(false);
+    expect(output.searchParams.has("lng")).toBe(false);
     expect(output.searchParams.get("distance")).toBe("down");
     expect(output.searchParams.get("geo")).toBe("on");
   });
 
-  it("restores coordinates from stored snapshot even when activity marker is off", () => {
+  it("restores geo mode from stored snapshot even when activity marker is off", () => {
     localStorage.setItem(LOCATION_ACTIVITY_STORAGE_KEY, "off");
     localStorage.setItem(
       LOCATION_STORAGE_KEY,
@@ -49,8 +49,8 @@ describe("ensureGeoQuery", () => {
     const result = ensureGeoQuery("/", new URLSearchParams("distance=off"));
     const output = new URL(result, "http://localhost");
 
-    expect(output.searchParams.get("lat")).toBe("46.519653");
-    expect(output.searchParams.get("lng")).toBe("6.632273");
+    expect(output.searchParams.has("lat")).toBe(false);
+    expect(output.searchParams.has("lng")).toBe(false);
     expect(output.searchParams.get("distance")).toBe("down");
     expect(output.searchParams.get("geo")).toBe("on");
   });

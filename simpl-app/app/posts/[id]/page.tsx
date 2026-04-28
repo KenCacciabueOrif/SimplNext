@@ -5,14 +5,15 @@
  */
 
 import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
 import GeoAwareBackLink from "@/app/components/layout/GeoAwareBackLink";
 import PostCard from "@/app/components/post/PostCard";
 import SortBar from "@/app/components/sort/SortBar";
 import ThreadReplyComposer from "@/app/components/composer/ThreadReplyComposer";
 import { buildNavigationQueryFromState } from "@/lib/navigation";
+import { readViewerLocationFromCookies } from "@/lib/viewer-location";
 import {
   getThreadPageData,
-  parseViewerLocation,
   resolveFeedSortState,
   type PostListItem,
 } from "@/lib/simpl";
@@ -27,13 +28,11 @@ export default async function PostPage({
     date?: string;
     distance?: string;
     sort?: string;
-    lat?: string;
-    lng?: string;
   }>;
 }) {
   const { id } = await params;
-  const { lat, lng, sort, popularity, date, distance } = await searchParams;
-  const viewerLocation = parseViewerLocation(lat, lng);
+  const { sort, popularity, date, distance } = await searchParams;
+  const viewerLocation = readViewerLocationFromCookies(await cookies());
   const sortState = resolveFeedSortState({ date, distance, popularity, sort }, viewerLocation);
   const threadData = await getThreadPageData(id, sortState, viewerLocation);
 

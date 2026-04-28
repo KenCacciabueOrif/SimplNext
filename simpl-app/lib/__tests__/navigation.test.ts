@@ -66,16 +66,16 @@ describe("buildNavigationQuery", () => {
     expect(params.get("date")).toBe("down");
   });
 
-  it("includes valid coordinates and defaults distance to down", () => {
-    const result = buildNavigationQuery("lat=48.8&lng=2.3&popularity=down");
+  it("drops coordinates and keeps non-sensitive query state", () => {
+    const result = buildNavigationQuery("lat=48.8&lng=2.3&popularity=down&geo=on");
     const params = new URLSearchParams(result);
-    expect(params.get("lat")).toBe("48.800000");
-    expect(params.get("lng")).toBe("2.300000");
-    expect(params.get("distance")).toBe("down");
+    expect(params.has("lat")).toBe(false);
+    expect(params.has("lng")).toBe(false);
+    expect(params.get("geo")).toBe("on");
     expect(params.get("popularity")).toBe("down");
   });
 
-  it("does not override an explicit distance mode when coordinates are present", () => {
+  it("keeps explicit distance mode when provided", () => {
     const result = buildNavigationQuery("lat=48.8&lng=2.3&distance=up");
     const params = new URLSearchParams(result);
     expect(params.get("distance")).toBe("up");

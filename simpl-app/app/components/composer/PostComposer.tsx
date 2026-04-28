@@ -34,38 +34,6 @@ export default function PostComposer({
   const searchParams = useSearchParams();
   const [locationSnapshot, setLocationSnapshot] = useState<ViewerLocationSnapshot | null>(null);
 
-  const queryLatitude = useMemo(() => {
-    const rawValue = searchParams.get("lat");
-
-    if (!rawValue) {
-      return null;
-    }
-
-    const parsed = Number(rawValue);
-
-    if (!Number.isFinite(parsed) || parsed < -90 || parsed > 90) {
-      return null;
-    }
-
-    return parsed.toFixed(6);
-  }, [searchParams]);
-
-  const queryLongitude = useMemo(() => {
-    const rawValue = searchParams.get("lng");
-
-    if (!rawValue) {
-      return null;
-    }
-
-    const parsed = Number(rawValue);
-
-    if (!Number.isFinite(parsed) || parsed < -180 || parsed > 180) {
-      return null;
-    }
-
-    return parsed.toFixed(6);
-  }, [searchParams]);
-
   useEffect(() => {
     const fromStorage = parseLocationSnapshot(localStorage.getItem(LOCATION_STORAGE_KEY));
 
@@ -97,19 +65,19 @@ export default function PostComposer({
 
   const latitudeValue = useMemo(() => {
     if (!locationSnapshot?.active || locationSnapshot.latitude === null) {
-      return queryLatitude ?? "";
+      return "";
     }
 
     return locationSnapshot.latitude.toFixed(6);
-  }, [locationSnapshot, queryLatitude]);
+  }, [locationSnapshot]);
 
   const longitudeValue = useMemo(() => {
     if (!locationSnapshot?.active || locationSnapshot.longitude === null) {
-      return queryLongitude ?? "";
+      return "";
     }
 
     return locationSnapshot.longitude.toFixed(6);
-  }, [locationSnapshot, queryLongitude]);
+  }, [locationSnapshot]);
 
   const navigationQueryValue = useMemo(() => {
     return buildComposerNavigationQuery(searchParams.toString(), locationSnapshot);

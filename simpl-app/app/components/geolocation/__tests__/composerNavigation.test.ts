@@ -13,23 +13,23 @@ function makeSnapshot(overrides?: Partial<ViewerLocationSnapshot>): ViewerLocati
 }
 
 describe("buildComposerNavigationQuery", () => {
-  it("keeps query coordinates when snapshot is temporarily unavailable", () => {
+  it("drops query coordinates when snapshot is temporarily unavailable", () => {
     const result = buildComposerNavigationQuery("popularity=down&date=off&lat=46.500000&lng=6.600000", null);
     const params = new URLSearchParams(result);
 
-    expect(params.get("lat")).toBe("46.500000");
-    expect(params.get("lng")).toBe("6.600000");
-    expect(params.get("distance")).toBe("down");
-    expect(params.get("geo")).toBe("on");
+    expect(params.has("lat")).toBe(false);
+    expect(params.has("lng")).toBe(false);
+    expect(params.has("distance")).toBe(false);
+    expect(params.has("geo")).toBe(false);
   });
 
-  it("prefers active snapshot coordinates over stale query coordinates", () => {
+  it("drops stale query coordinates and keeps geo=on when snapshot is active", () => {
     const snapshot = makeSnapshot({ latitude: 40.7128, longitude: -74.006 });
     const result = buildComposerNavigationQuery("lat=46.500000&lng=6.600000&distance=up", snapshot);
     const params = new URLSearchParams(result);
 
-    expect(params.get("lat")).toBe("40.712800");
-    expect(params.get("lng")).toBe("-74.006000");
+    expect(params.has("lat")).toBe(false);
+    expect(params.has("lng")).toBe(false);
     expect(params.get("distance")).toBe("up");
     expect(params.get("geo")).toBe("on");
   });

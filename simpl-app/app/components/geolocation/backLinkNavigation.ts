@@ -11,15 +11,19 @@ import {
 } from "@/app/components/geolocation/browserState";
 
 export function ensureGeoQuery(pathname: string, params: URLSearchParams) {
-  const latitude = params.get("lat");
-  const longitude = params.get("lng");
+  const hasLegacyCoordinates = Boolean(params.get("lat") && params.get("lng"));
+
+  params.delete("lat");
+  params.delete("lng");
+
+  if (hasLegacyCoordinates) {
+    params.set("geo", "on");
+  }
 
   const preferences = readSortPreferences();
 
-  if (latitude && longitude) {
+  if (params.get("geo") === "on") {
     ensureDistanceModeFromPreferences(params, preferences);
-
-    params.set("geo", "on");
     const query = params.toString();
     return query ? `${pathname}?${query}` : pathname;
   }
@@ -27,8 +31,6 @@ export function ensureGeoQuery(pathname: string, params: URLSearchParams) {
   const storedSnapshot = readStoredLocationSnapshot();
 
   if (storedSnapshot?.active && storedSnapshot.latitude !== null && storedSnapshot.longitude !== null) {
-    params.set("lat", storedSnapshot.latitude.toFixed(6));
-    params.set("lng", storedSnapshot.longitude.toFixed(6));
     params.set("geo", "on");
     ensureDistanceModeFromPreferences(params, preferences);
 

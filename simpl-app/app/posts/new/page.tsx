@@ -15,12 +15,10 @@ export default async function NewPostPage({
     popularity?: string;
     date?: string;
     distance?: string;
-    lat?: string;
-    lng?: string;
     geo?: string;
   }>;
 }) {
-  const { popularity, date, distance, lat, lng, geo } = await searchParams;
+  const { popularity, date, distance, geo } = await searchParams;
   const backParams = new URLSearchParams();
 
   const parsedPopularity = parseSortModeValue(popularity ?? null);
@@ -31,11 +29,6 @@ export default async function NewPostPage({
 
   const parsedDistance = parseSortModeValue(distance ?? null);
   if (parsedDistance) backParams.set("distance", parsedDistance);
-
-  if (lat && lng) {
-    backParams.set("lat", lat);
-    backParams.set("lng", lng);
-  }
 
   if (geo === "on" || geo === "off") {
     backParams.set("geo", geo);

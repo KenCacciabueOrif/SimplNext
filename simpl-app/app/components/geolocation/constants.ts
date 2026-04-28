@@ -14,3 +14,6 @@ export const LOCATION_INDEXED_DB_NAME = "simpl-geolocation";
 export const LOCATION_INDEXED_DB_VERSION = 1;
 export const LOCATION_INDEXED_DB_STORE = "state";
 export const LOCATION_INDEXED_DB_KEY = "viewer-location";
+
+export const VIEWER_LOCATION_COOKIE_KEY = "simpl-viewer-location";
+export const VIEWER_LOCATION_COOKIE_MAX_AGE_SECONDS = 30 * 60;
