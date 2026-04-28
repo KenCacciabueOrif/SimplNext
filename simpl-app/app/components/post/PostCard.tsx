@@ -1,14 +1,14 @@
 ﻿/**
- * Last updated: 2026-04-22
- * Changes: Replaced Like/DisLike/Good/Bad form submits with optimistic client controls and restored Report availability on the main thread post.
+ * Last updated: 2026-04-28
+ * Changes: Converted to a client component and switched Report to optimistic queue handling so reported posts hide immediately for the reporting viewer.
  * Purpose: Present Simpl posts with their metadata, counters, and available actions.
  */
 
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
-import { ModerationDecision, PostStatus } from "@prisma/client";
-import {
-  castModerationVoteFormAction,
-} from "@/app/actions";
+import { PostStatus } from "@prisma/client";
 import GeoAwareBackLink from "@/app/components/layout/GeoAwareBackLink";
 import PostActionControls from "@/app/components/post/PostActionControls";
 import type { PostListItem } from "@/lib/simpl";
@@ -54,6 +54,14 @@ function formatDistance(distanceKm: number | null) {
 }
 
 export default function PostCard({ post, threadId, mode, navigationQuery }: PostCardProps) {
+  const [isHiddenForReporter, setIsHiddenForReporter] = useState(
+    post.viewerModerationDecision === "REMOVE",
+  );
+
+  if (isHiddenForReporter && mode !== "moderation") {
+    return null;
+  }
+
   const isModeration = mode === "moderation";
   const isMain = mode === "thread-main";
   const postThreadHref = navigationQuery ? `/posts/${post.id}?${navigationQuery}` : `/posts/${post.id}`;
@@ -106,22 +114,15 @@ export default function PostCard({ post, threadId, mode, navigationQuery }: Post
               postId={post.id}
               threadId={threadId}
               mode="reactions"
+              showReportButton
               likeCount={post.likeCount}
               dislikeCount={post.dislikeCount}
               keepVoteCount={post.keepVoteCount}
               removeVoteCount={post.removeVoteCount}
               viewerReaction={post.viewerReaction}
               viewerModerationDecision={post.viewerModerationDecision}
+              onViewerReported={() => setIsHiddenForReporter(true)}
             />
-
-            <form action={castModerationVoteFormAction}>
-              <input name="postId" type="hidden" value={post.id} />
-              <input name="threadId" type="hidden" value={threadId} />
-              <input name="decision" type="hidden" value={ModerationDecision.REMOVE} />
-              <button className="legacy-button" type="submit">
-                Report
-              </button>
-            </form>
           </div>
         )}
 

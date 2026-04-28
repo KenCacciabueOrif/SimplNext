@@ -1,7 +1,7 @@
 ﻿/**
- * Last updated: 2026-04-27
- * Changes: Extracted pure optimistic-state helpers to postActionState.ts; component now focuses solely on React/UI concerns.
- * Purpose: Handle Like/DisLike/Good/Bad interactions with immediate UI feedback while server actions complete.
+ * Last updated: 2026-04-28
+ * Changes: Routed Report through the optimistic queue flow and exposed an optional callback so parent cards can hide immediately for the reporting viewer.
+ * Purpose: Handle Like/DisLike/Good/Bad/Report interactions with immediate UI feedback while server actions complete.
  */
 
 "use client";
@@ -30,24 +30,28 @@ type PostActionControlsProps = {
   postId: string;
   threadId: string;
   mode: "reactions" | "moderation";
+  showReportButton?: boolean;
   likeCount: number;
   dislikeCount: number;
   keepVoteCount: number;
   removeVoteCount: number;
   viewerReaction: ReactionType | null;
   viewerModerationDecision: ModerationDecision | null;
+  onViewerReported?: () => void;
 };
 
 export default function PostActionControls({
   postId,
   threadId,
   mode,
+  showReportButton = false,
   likeCount,
   dislikeCount,
   keepVoteCount,
   removeVoteCount,
   viewerReaction,
   viewerModerationDecision,
+  onViewerReported,
 }: PostActionControlsProps) {
   const [state, setState] = useState<OptimisticPostState>({
     dislikeCount,
@@ -91,6 +95,13 @@ export default function PostActionControls({
 
     setState(optimisticState);
     enqueueModerationVote(postId, threadId, nextDecision);
+
+    if (
+      nextDecision === ModerationDecision.REMOVE
+      && optimisticState.viewerModerationDecision === ModerationDecision.REMOVE
+    ) {
+      onViewerReported?.();
+    }
   }
 
   if (mode === "moderation") {
@@ -136,6 +147,17 @@ export default function PostActionControls({
       >
         {`DisLike ${state.dislikeCount}`}
       </button>
+
+      {showReportButton ? (
+        <button
+          className={`legacy-button${state.viewerModerationDecision === ModerationDecision.REMOVE ? " is-active" : ""}`}
+          type="button"
+          aria-busy={queuedCount > 0}
+          onClick={() => submitModerationVote(ModerationDecision.REMOVE)}
+        >
+          Report
+        </button>
+      ) : null}
     </>
   );
 }

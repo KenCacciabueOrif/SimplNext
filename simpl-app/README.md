@@ -1,4 +1,6 @@
-﻿> Last updated: 2026-04-27
+﻿> Last updated: 2026-04-28
+> Changes: Report now uses the same optimistic post-action queue as Like/DisLike/Good/Bad, and reported cards are hidden immediately for the reporting viewer without waiting for a route reload.
+> Last updated: 2026-04-27
 > Changes: Started next cleanup phase by removing deprecated `vite-tsconfig-paths` usage in Vitest config and switching to native `resolve.tsconfigPaths` support to eliminate test-run warning noise.
 > Last updated: 2026-04-27
 > Changes: Phase 1 — reorganized `app/components` by domain (`layout`, `post`, `composer`, `sort`, `geolocation`) and updated imports/tests references accordingly.
