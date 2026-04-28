@@ -156,6 +156,23 @@ Local social network with community moderation.
 - Global cleanup phase 0 now enforces local + CI quality gates: pre-commit checks (`check:file-length`, lint-staged, `test:related-staged`) and PR workflow checks (`check:file-length`, lint, tests, build).
 - The 200-line file policy is active for source folders, with temporary baseline exceptions documented in `scripts/file-length-config.mjs` until decomposition phases complete.
 
+## Folder READMEs
+
+Each source folder has a `README.md` documenting its contents, architecture, and maintenance rules.
+
+- [app/actions/README.md](app/actions/README.md) — server action modules, barrel, key code comment links.
+- [app/components/README.md](app/components/README.md) — overview of all 5 domain component folders.
+- [app/components/geolocation/README.md](app/components/geolocation/README.md) — all 14+ geolocation files, architecture overview, hooks/helpers/storage breakdown.
+- [app/components/post/README.md](app/components/post/README.md) — PostCard, PostActionControls, postActionQueue, optimistic update architecture.
+- [app/components/composer/README.md](app/components/composer/README.md) — PostComposer, ThreadReplyComposer.
+- [app/components/layout/README.md](app/components/layout/README.md) — AppTabs, GeoAwareBackLink.
+- [app/components/sort/README.md](app/components/sort/README.md) — SortBar presentation component.
+- [app/posts/README.md](app/posts/README.md) — `/posts`, `/posts/new`, `/posts/[id]` routes.
+- [app/moderation/README.md](app/moderation/README.md) — moderation queue route, filtering rules, sort behavior.
+- [lib/README.md](lib/README.md) — all 12 lib/ modules, dependency graph, test file inventory.
+- [prisma/README.md](prisma/README.md) — schema models/enums, seed architecture, migration workflow.
+- [scripts/README.md](scripts/README.md) — check-file-length, file-length-config, run-related-tests.
+
 ## Important Code Comments
 
 - [app/actions.ts](app/actions.ts): server-side mutation entry point that returns canonical action state for fast client reconciliation. Navigation query building is delegated to lib/navigation.ts; moderation policy to lib/policy.ts; vote actions no longer force immediate route revalidation, so list order stays stable until explicit navigation.
@@ -209,7 +226,10 @@ Run with `npm test` (single pass) or `npm run test:watch` (interactive).
 - [app/components/geolocation/\_\_tests\_\_/tabNavigation.test.ts](app/components/geolocation/__tests__/tabNavigation.test.ts): 3 tests — Home-tab geolocation restoration and query sanitization.
 - [app/components/post/postActionQueue.test.ts](app/components/post/postActionQueue.test.ts): 15 tests — `enqueueReaction`, `enqueueModerationVote`, flush success/failure/offline, subscriber notifications, chronological ordering.
 - [lib/\_\_tests\_\_/geo.test.ts](lib/__tests__/geo.test.ts): 7 tests — `calculateDistanceKm` null-guard, same-location, known coordinate pairs, symmetry.
+- [lib/\_\_tests\_\_/viewer-location.test.ts](lib/__tests__/viewer-location.test.ts): 14 tests — `readViewerLocationFromCookies` valid pairs, boundary values, missing cookie, malformed format, out-of-range lat/lng.
+- [app/actions/\_\_tests\_\_/formUtils.test.ts](app/actions/__tests__/formUtils.test.ts): 11 tests — `normalizeText` trimming/null/File, `parseOptionalFloat` valid/null/empty/NaN/Infinity/File.
 - [app/components/geolocation/\_\_tests\_\_/testHelpers.ts](app/components/geolocation/__tests__/testHelpers.ts): shared `installMockLocalStorage` utility used by all geolocation test files.
+- [app/components/sort/SortBar.test.tsx](app/components/sort/SortBar.test.tsx): 9 tests — button labels, mode indicators (= ↓ ↑), GPS prompt visibility, denied message, loading/disabled state.
 
 1. Install dependencies with `npm install`.
 2. Ensure `DATABASE_URL` is set in `.env`.

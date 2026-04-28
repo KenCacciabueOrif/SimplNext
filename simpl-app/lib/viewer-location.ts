@@ -1,3 +1,12 @@
+/**
+ * Last updated: 2026-04-28
+ * Changes: No changes — initial extraction from inline cookie reads across
+ *          server components; centralises ViewerLocation cookie parsing behind
+ *          the CookieReader interface for testability.
+ * Purpose: Server-side helper that reads and validates the viewer location
+ *          cookie, returning a typed ViewerLocation or null if absent/invalid.
+ */
+
 import type { ViewerLocation } from "@/lib/types";
 import { VIEWER_LOCATION_COOKIE_KEY } from "@/app/components/geolocation/constants";
 

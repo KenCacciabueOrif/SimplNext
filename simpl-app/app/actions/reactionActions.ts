@@ -1,4 +1,6 @@
 /**
+ * Last updated: 2026-04-28
+ * Changes: No changes — initial extraction from app/actions.ts during phase-2 modularization.
  * Purpose: Server action for toggling post reactions (Like / Dislike).
  */
 

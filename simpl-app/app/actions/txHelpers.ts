@@ -1,4 +1,6 @@
 /**
+ * Last updated: 2026-04-28
+ * Changes: No changes — initial extraction from app/actions.ts during phase-2 modularization.
  * Purpose: Private Prisma transaction helpers shared by reaction and moderation action modules.
  */
 

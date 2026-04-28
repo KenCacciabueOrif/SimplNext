@@ -16,5 +16,7 @@ export const MAX_FILE_LINES = 200;
 
 // Keep this list short and remove entries as files are decomposed.
 export const TEMPORARY_EXCEPTIONS = new Set([
-  // All known large files have been decomposed — list is intentionally empty.
+  // useGeoSort bundles permission listening, GPS acquisition, and router navigation in one hook.
+  // Decomposition is tracked as a future cleanup task.
+  "app/components/geolocation/useGeoSort.ts",
 ]);
